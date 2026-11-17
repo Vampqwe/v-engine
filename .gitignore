@@ -1,0 +1,7 @@
+/vendor/
+/log/*.log
+/storage/cache/*.cache
+/.osp/
+.env
+config.env
+.php-cs-fixer.cache
