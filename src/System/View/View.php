@@ -92,16 +92,28 @@ final class View implements ViewInterface
 
     private function resolvePath(string $template): string
     {
-        $clean = str_replace(['..', '\\'], ['', '/'], trim($template, '/'));
-        if (!str_ends_with($clean, '.php')) {
-            $clean .= '.php';
+        if (str_starts_with($template, '@')) {
+            [$module, $subPath] = explode('/', substr($template, 1), 2);
+            $cleanModule = preg_replace('/[^a-zA-Z0-9_-]/', '', $module);
+            $cleanSub = str_replace(['..', '\\'], ['', '/'], trim($subPath, '/'));
+            if (!str_ends_with($cleanSub, '.php')) {
+                $cleanSub .= '.php';
+            }
+            $baseDir = dirname($this->viewsDir) . "/modules/{$cleanModule}/views";
+            $fullPath = "{$baseDir}/{$cleanSub}";
+        } else {
+            $clean = str_replace(['..', '\\'], ['', '/'], trim($template, '/'));
+            if (!str_ends_with($clean, '.php')) {
+                $clean .= '.php';
+            }
+            $fullPath = rtrim($this->viewsDir, '/\\') . '/' . $clean;
         }
 
-        $fullPath = rtrim($this->viewsDir, '/\\') . '/' . $clean;
         if (!is_file($fullPath) || !is_readable($fullPath)) {
             throw new ViewException("Файл шаблона не найден: {$template} ({$fullPath})");
         }
 
         return $fullPath;
     }
+
 }

@@ -8,15 +8,17 @@ use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Router\RouterInterface;
 use VEngine\System\TimeDate\TimeDateInterface;
+use VEngine\System\View\ViewInterface;
 
 final class ApiController extends AbstractController
 {
     public function __construct(
-        RouterInterface $router,
-        private readonly TimeDateInterface $timeDate
-    ) {
-        parent::__construct($router);
-    }
+    RouterInterface $router,
+    ViewInterface $view,
+    private readonly TimeDateInterface $timeDate
+	) {
+		parent::__construct($router, $view);
+	}
 
     public function health(): ResponseInterface
     {

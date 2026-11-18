@@ -12,7 +12,8 @@
     "autoload": {
         "psr-4": {
             "VEngine\\": "src/",
-            "App\\": "app/"
+            "App\\": "app/",
+			"Modules\\": "modules/"
         }
     },
     "scripts": {

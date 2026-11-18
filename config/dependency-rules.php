@@ -34,6 +34,7 @@ use VEngine\System\View\View;
 use VEngine\System\View\ViewInterface;
 use VEngine\System\Validator\Validator;
 use VEngine\System\Validator\ValidatorInterface;
+use Modules\Admin\Services\AdminUserService;
 
 return [
     ErrorRendererInterface::class => DI\autowire(ErrorRenderer::class),
@@ -46,6 +47,7 @@ return [
     SessionInterface::class  => DI\autowire(Session::class),
     SecurityInterface::class => DI\autowire(Security::class),
     ValidatorInterface::class => DI\autowire(Validator::class),
+	AdminUserService::class => DI\autowire(AdminUserService::class),
 
     ConfigInterface::class => static function (ContainerInterface $c): ConfigInterface {
         return new Config(
@@ -71,22 +73,36 @@ return [
     },
 
     RouterInterface::class => static function (ContainerInterface $c): RouterInterface {
-        $router = new Router($c, $c->get(InvokerInterface::class));
-        $routesDir = $c->get('path.routes');
+    $router = new Router($c, $c->get(InvokerInterface::class));
 
-        if (is_dir($routesDir)) {
-            $files = glob($routesDir . '/*.php') ?: [];
-            sort($files);
-            foreach ($files as $file) {
-                $registrar = require $file;
-                if (is_callable($registrar)) {
-                    $registrar($router);
-                }
+    // 1. Загружаем основные маршруты из config/routes/*.php
+    $routesDir = $c->get('path.routes');
+    if (is_dir($routesDir)) {
+        $files = glob($routesDir . '/*.php') ?: [];
+        sort($files);
+        foreach ($files as $file) {
+            $registrar = require $file;
+            if (is_callable($registrar)) {
+                $registrar($router);
             }
         }
+    }
 
-        return $router;
-    },
+    // 2. Автоматически подключаем маршруты изолированных модулей (modules/*/routes.php)
+    $modulesDir = $c->get('path.modules');
+    if (is_dir($modulesDir)) {
+        $moduleRoutes = glob($modulesDir . '/*/routes.php') ?: [];
+        sort($moduleRoutes);
+        foreach ($moduleRoutes as $file) {
+            $registrar = require $file;
+            if (is_callable($registrar)) {
+                $registrar($router);
+            }
+        }
+    }
+
+    return $router;
+},
 
     ViewInterface::class => static function (ContainerInterface $c): ViewInterface {
         return new View(

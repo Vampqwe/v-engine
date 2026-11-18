@@ -22,6 +22,7 @@ final class Application
         $this->paths = [
             'path.root'   => $root,
 			'path.app' => $root . '/app',
+			'path.modules' => $root . '/modules',
             'path.config' => $root . '/config',
             'path.routes' => $root . '/config/routes',
             'path.log'    => $root . '/log',
