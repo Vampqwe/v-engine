@@ -179,4 +179,59 @@ final class Router implements RouterInterface
         $normalized = '/' . trim($path, '/');
         return $normalized === '' ? '/' : $normalized;
     }
+	
+	    /**
+     * Экспортирует все маршруты и карту именованных маршрутов.
+     * Возвращает null, если среди обработчиков есть замыкания (Closure).
+     *
+     * @return array{routes: array<int, array<string, mixed>>, named: array<string, int>}|null
+     */
+    public function exportCompiled(): ?array
+    {
+        $exportedRoutes = [];
+        $routeIndexMap = [];
+
+        foreach ($this->routes as $index => $route) {
+            if (!is_array($route->getHandler())) {
+                return null;
+            }
+            $exportedRoutes[$index] = $route->toArray();
+            $routeIndexMap[spl_object_id($route)] = $index;
+        }
+
+        $namedMap = [];
+        foreach ($this->namedRoutes as $fullName => $route) {
+            $objId = spl_object_id($route);
+            if (isset($routeIndexMap[$objId])) {
+                $namedMap[$fullName] = $routeIndexMap[$objId];
+            }
+        }
+
+        return [
+            'routes' => $exportedRoutes,
+            'named'  => $namedMap,
+        ];
+    }
+
+    /**
+     * Загружает скомпилированные маршруты из кэша.
+     *
+     * @param array{routes: array<int, array<string, mixed>>, named: array<string, int>} $compiled
+     */
+    public function loadCompiled(array $compiled): void
+    {
+        $this->routes = [];
+        $this->namedRoutes = [];
+
+        foreach ($compiled['routes'] as $index => $routeData) {
+            $this->routes[$index] = Route::fromArray($routeData);
+        }
+
+        foreach ($compiled['named'] as $fullName => $index) {
+            if (isset($this->routes[$index])) {
+                $this->namedRoutes[$fullName] = $this->routes[$index];
+            }
+        }
+    }
+
 }

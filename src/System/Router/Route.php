@@ -8,7 +8,7 @@ final class Route
 {
     private ?string $name = null;
     private array $middlewares = [];
-    private string $regex;
+    private string $regex = '';
     private array $paramNames = [];
 
     /**
@@ -20,10 +20,13 @@ final class Route
         private readonly string $pattern,
         private readonly mixed $handler,
         array $middlewares = [],
-        private readonly ?\Closure $onNamedCallback = null
+        private readonly ?\Closure $onNamedCallback = null,
+        bool $skipCompile = false
     ) {
         $this->middlewares = $middlewares;
-        $this->compilePattern();
+        if (!$skipCompile) {
+            $this->compilePattern();
+        }
     }
 
     public function name(string $name): self
@@ -83,6 +86,46 @@ final class Route
     public function getMiddlewares(): array
     {
         return $this->middlewares;
+    }
+
+    /**
+     * Экспортирует скомпилированное состояние маршрута для кэша.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'method'      => $this->method,
+            'pattern'     => $this->pattern,
+            'handler'     => $this->handler,
+            'middlewares' => $this->middlewares,
+            'name'        => $this->name,
+            'regex'       => $this->regex,
+            'paramNames'  => $this->paramNames,
+        ];
+    }
+
+    /**
+     * Восстанавливает маршрут из кэша без повторной компиляции regex.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $route = new self(
+            (string) $data['method'],
+            (string) $data['pattern'],
+            $data['handler'],
+            (array) ($data['middlewares'] ?? []),
+            null,
+            true
+        );
+        $route->name = $data['name'] ?? null;
+        $route->regex = (string) $data['regex'];
+        $route->paramNames = (array) ($data['paramNames'] ?? []);
+
+        return $route;
     }
 
     private function compilePattern(): void

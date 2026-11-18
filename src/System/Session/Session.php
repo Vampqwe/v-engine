@@ -26,14 +26,22 @@ final class Session implements SessionInterface
             throw new SessionException('Невозможно запустить сессию: HTTP-заголовки уже отправлены');
         }
 
+        $lifetime = (int) $this->config->get('session', 'lifetime', 7200);
+        $driver = (string) $this->config->get('session', 'driver', $this->config->env('SESSION_DRIVER', 'file'));
+
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.gc_maxlifetime', (string) $lifetime);
+
+        if ($driver === 'redis') {
+            $this->configureRedisHandler();
+        }
 
         $name = (string) $this->config->get('session', 'name', 'VENGINE_SESSID');
         session_name($name);
 
         session_set_cookie_params([
-            'lifetime' => (int) $this->config->get('session', 'lifetime', 7200),
+            'lifetime' => $lifetime,
             'path'     => (string) $this->config->get('session', 'path', '/'),
             'domain'   => '',
             'secure'   => (bool) $this->config->get('session', 'secure', false),
@@ -44,6 +52,33 @@ final class Session implements SessionInterface
         if (!session_start()) {
             throw new SessionException('Не удалось инициализировать PHP-сессию');
         }
+    }
+
+    private function configureRedisHandler(): void
+    {
+        if (!extension_loaded('redis')) {
+            throw new SessionException('Для работы сессий через Redis требуется PHP-расширение ext-redis');
+        }
+
+        $host = (string) $this->config->env('REDIS_HOST', '127.0.0.1');
+        $port = (int) $this->config->env('REDIS_PORT', 6379);
+        $password = (string) $this->config->env('REDIS_PASSWORD', '');
+        $database = (int) $this->config->env('REDIS_DB', 0);
+        $prefix = (string) $this->config->env('REDIS_PREFIX', 'vengine:') . 'sess:';
+
+        $query = [
+            'database' => $database,
+            'prefix'   => $prefix,
+        ];
+
+        if ($password !== '') {
+            $query['auth'] = $password;
+        }
+
+        $savePath = sprintf('tcp://%s:%d?%s', $host, $port, http_build_query($query));
+
+        ini_set('session.save_handler', 'redis');
+        ini_set('session.save_path', $savePath);
     }
 
     public function get(string $key, mixed $default = null): mixed

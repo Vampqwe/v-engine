@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'driver'   => $_ENV['SESSION_DRIVER'] ?? 'file', // file | redis
     'name'     => 'VENGINE_SESSID',
     'lifetime' => 7200, // 2 часа в секундах
     'path'     => '/',

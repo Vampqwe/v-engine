@@ -105,4 +105,25 @@ final class Request implements RequestInterface
 
         return [];
     }
+	
+	public function ip(): string
+	{
+		$forwardedFor = $this->header('x-forwarded-for');
+		if (is_string($forwardedFor) && $forwardedFor !== '') {
+			$ips = array_map('trim', explode(',', $forwardedFor));
+			foreach ($ips as $ip) {
+				if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
+					return $ip;
+				}
+			}
+		}
+
+		$realIp = $this->header('x-real-ip');
+		if (is_string($realIp) && filter_var($realIp, FILTER_VALIDATE_IP) !== false) {
+			return $realIp;
+		}
+
+		$remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+		return filter_var($remoteAddr, FILTER_VALIDATE_IP) !== false ? $remoteAddr : '127.0.0.1';
+	}
 }

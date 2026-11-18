@@ -15,21 +15,26 @@ final class Application
 {
     private ContainerInterface $container;
     private array $paths = [];
+    private bool $isProd;
 
     public function __construct(string $rootPath)
     {
         $root = rtrim($rootPath, DIRECTORY_SEPARATOR);
         $this->paths = [
-            'path.root'   => $root,
-			'path.app' => $root . '/app',
-			'path.modules' => $root . '/modules',
-            'path.config' => $root . '/config',
-            'path.routes' => $root . '/config/routes',
-            'path.log'    => $root . '/log',
-            'path.cache'  => $root . '/storage/cache',
-            'path.public' => $root . '/public',
-			'path.views' => $root . '/views'
+            'path.root'    => $root,
+            'path.app'     => $root . '/app',
+            'path.modules' => $root . '/modules',
+            'path.config'  => $root . '/config',
+            'path.routes'  => $root . '/config/routes',
+            'path.log'     => $root . '/log',
+            'path.cache'   => $root . '/storage/cache',
+            'path.public'  => $root . '/public',
+            'path.views'   => $root . '/views',
         ];
+
+        $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'dev';
+        $this->isProd = ($env === 'prod');
+
         $this->buildContainer();
     }
 
@@ -37,6 +42,16 @@ final class Application
     {
         $builder = new ContainerBuilder();
         $builder->useAutowiring(true);
+
+        if ($this->isProd) {
+            $diCacheDir = $this->paths['path.cache'] . '/di';
+            if (!is_dir($diCacheDir)) {
+                @mkdir($diCacheDir, 0o755, true);
+            }
+            $builder->enableCompilation($diCacheDir);
+            $builder->writeProxiesToFile(true, $diCacheDir . '/proxies');
+        }
+
         $builder->addDefinitions($this->paths);
         $builder->addDefinitions($this->paths['path.config'] . '/dependency-rules.php');
         $this->container = $builder->build();
@@ -46,13 +61,15 @@ final class Application
     {
         $this->container->get(ErrorHandlerInterface::class)->register();
 
-        $logger = $this->container->get(LoggerInterface::class)->forModule('Kernel');
         $request = $this->container->get(RequestInterface::class);
 
-        $logger->info('Обработка запроса', [
-            'method' => $request->method(),
-            'uri'    => $request->uri(),
-        ]);
+        if (!$this->isProd) {
+            $logger = $this->container->get(LoggerInterface::class)->forModule('Kernel');
+            $logger->info('Обработка запроса', [
+                'method' => $request->method(),
+                'uri'    => $request->uri(),
+            ]);
+        }
 
         $router = $this->container->get(RouterInterface::class);
         $response = $router->dispatch($request);

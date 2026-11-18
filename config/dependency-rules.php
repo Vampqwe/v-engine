@@ -34,6 +34,8 @@ use VEngine\System\View\View;
 use VEngine\System\View\ViewInterface;
 use VEngine\System\Validator\Validator;
 use VEngine\System\Validator\ValidatorInterface;
+use VEngine\System\Cache\RedisCache;
+use VEngine\System\Redis\RedisClient;
 use Modules\Admin\Services\AdminUserService;
 
 return [
@@ -47,7 +49,9 @@ return [
     SessionInterface::class  => DI\autowire(Session::class),
     SecurityInterface::class => DI\autowire(Security::class),
     ValidatorInterface::class => DI\autowire(Validator::class),
+	RedisClient::class => DI\autowire(RedisClient::class),
 	AdminUserService::class => DI\autowire(AdminUserService::class),
+	
 
     ConfigInterface::class => static function (ContainerInterface $c): ConfigInterface {
         return new Config(
@@ -65,44 +69,85 @@ return [
     },
 
     CacheInterface::class => static function (ContainerInterface $c): CacheInterface {
-        return new FileCache(
-            $c->get('path.cache'),
-            $c->get(FileInterface::class),
-            $c->get(TimeDateInterface::class)
-        );
+    /** @var ConfigInterface $config */
+		$config = $c->get(ConfigInterface::class);
+		$driver = (string) $config->env('CACHE_DRIVER', 'file');
+
+		if ($driver === 'redis') {
+			return new RedisCache(
+				$c->get(RedisClient::class),
+				$c->get(TimeDateInterface::class)
+			);
+		}
+
+		return new FileCache(
+			$c->get('path.cache'),
+			$c->get(FileInterface::class),
+			$c->get(TimeDateInterface::class)
+		);
+	},
+
+        RouterInterface::class => static function (ContainerInterface $c): RouterInterface {
+        $router = new Router($c, $c->get(InvokerInterface::class));
+
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+        $isProd = ($config->env('APP_ENV', 'dev') === 'prod');
+        $cacheFile = $c->get('path.cache') . '/routes.compiled.php';
+
+        if ($isProd && is_file($cacheFile)) {
+            $compiled = require $cacheFile;
+            if (is_array($compiled) && isset($compiled['routes'], $compiled['named'])) {
+                $router->loadCompiled($compiled);
+                return $router;
+            }
+        }
+
+        // 1. Загружаем основные маршруты из config/routes/*.php
+        $routesDir = $c->get('path.routes');
+        if (is_dir($routesDir)) {
+            $files = glob($routesDir . '/*.php') ?: [];
+            sort($files);
+            foreach ($files as $file) {
+                $registrar = require $file;
+                if (is_callable($registrar)) {
+                    $registrar($router);
+                }
+            }
+        }
+
+        // 2. Автоматически подключаем маршруты изолированных модулей (modules/*/routes.php)
+        $modulesDir = $c->get('path.modules');
+        if (is_dir($modulesDir)) {
+            $moduleRoutes = glob($modulesDir . '/*/routes.php') ?: [];
+            sort($moduleRoutes);
+            foreach ($moduleRoutes as $file) {
+                $registrar = require $file;
+                if (is_callable($registrar)) {
+                    $registrar($router);
+                }
+            }
+        }
+
+        // 3. Сохраняем скомпилированные маршруты в prod-режиме
+        if ($isProd) {
+            $exported = $router->exportCompiled();
+            if ($exported !== null) {
+                $cacheDir = dirname($cacheFile);
+                if (!is_dir($cacheDir)) {
+                    @mkdir($cacheDir, 0o755, true);
+                }
+                $tmpFile = $cacheFile . '.' . uniqid('', true) . '.tmp';
+                $content = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($exported, true) . ";\n";
+                if (@file_put_contents($tmpFile, $content, LOCK_EX) !== false) {
+                    @rename($tmpFile, $cacheFile);
+                }
+            }
+        }
+
+        return $router;
     },
 
-    RouterInterface::class => static function (ContainerInterface $c): RouterInterface {
-    $router = new Router($c, $c->get(InvokerInterface::class));
-
-    // 1. Загружаем основные маршруты из config/routes/*.php
-    $routesDir = $c->get('path.routes');
-    if (is_dir($routesDir)) {
-        $files = glob($routesDir . '/*.php') ?: [];
-        sort($files);
-        foreach ($files as $file) {
-            $registrar = require $file;
-            if (is_callable($registrar)) {
-                $registrar($router);
-            }
-        }
-    }
-
-    // 2. Автоматически подключаем маршруты изолированных модулей (modules/*/routes.php)
-    $modulesDir = $c->get('path.modules');
-    if (is_dir($modulesDir)) {
-        $moduleRoutes = glob($modulesDir . '/*/routes.php') ?: [];
-        sort($moduleRoutes);
-        foreach ($moduleRoutes as $file) {
-            $registrar = require $file;
-            if (is_callable($registrar)) {
-                $registrar($router);
-            }
-        }
-    }
-
-    return $router;
-},
 
     ViewInterface::class => static function (ContainerInterface $c): ViewInterface {
         return new View(

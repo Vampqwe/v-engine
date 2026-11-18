@@ -15,8 +15,9 @@ final class Config implements ConfigInterface
         private readonly string $rootPath,
         private readonly MapInterface $map
     ) {
-        $dotenv = Dotenv::createImmutable($this->rootPath);
-        $dotenv->safeLoad();
+        if (!isset($_ENV['APP_ENV']) && !isset($_SERVER['APP_ENV']) && class_exists(Dotenv::class)) {
+            Dotenv::createImmutable($this->rootPath)->safeLoad();
+        }
     }
 
     public function env(string $key, mixed $default = null): mixed
