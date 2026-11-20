@@ -10,6 +10,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $this->escape($title ?? 'Admin | V-engine') ?></title>
+    <link rel="stylesheet" href="/assets/css/admin.css">
     <style>
         :root {
             --bg-canvas: #0d1117;
@@ -70,7 +71,7 @@
         .btn-primary:hover { background: #2ea043; }
     </style>
 </head>
-<body>
+<body class="admin-body">
     <header class="topbar">
         <a href="<?= $this->route('admin.dashboard') ?>" class="brand">V-engine <span>Admin</span></a>
         <div class="nav-actions">

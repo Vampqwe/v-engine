@@ -41,6 +41,7 @@ use VEngine\System\Redis\RedisClient;
 use VEngine\System\RateLimit\RateLimiterInterface;
 use VEngine\System\RateLimit\RedisRateLimiter;
 use Modules\Admin\Services\AdminUserService;
+use Modules\Admin\Services\EngineStatsService;
 
 return [
     ErrorRendererInterface::class => DI\autowire(ErrorRenderer::class),
@@ -56,6 +57,11 @@ return [
     RateLimiterInterface::class => DI\autowire(RedisRateLimiter::class),
     RedisClient::class => DI\autowire(RedisClient::class),
     AdminUserService::class => DI\autowire(AdminUserService::class),
+    EngineStatsService::class => DI\autowire(EngineStatsService::class)
+        ->constructorParameter('siteRoot', DI\get('path.siteRoot'))
+        ->constructorParameter('sitesRoot', DI\get('path.sites'))
+        ->constructorParameter('modulesRoot', DI\get('path.modules'))
+        ->constructorParameter('storageRoot', DI\get('path.storage')),
 
 
     ConfigInterface::class => static function (ContainerInterface $c): ConfigInterface {

@@ -46,6 +46,8 @@ final class Application
             'path.siteRoot' => $siteRoot,
             'path.siteApp'  => $siteRoot . '/App',
             'path.config'   => $root . '/config',
+            'path.sites'    => $root . '/sites',
+            'path.storage'  => $root . '/storage',
             'path.routes'   => $siteRoot . '/routes',
             'path.log'      => $root . '/log',
             'path.cache'    => $root . '/storage/cache/sites/' . $siteName,

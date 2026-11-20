@@ -9,7 +9,6 @@ use VEngine\System\Config\ConfigInterface;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Router\RouterInterface;
-use VEngine\System\TimeDate\TimeDateInterface;
 use VEngine\System\View\ViewInterface;
 
 final class DashboardController extends AbstractController
@@ -17,8 +16,7 @@ final class DashboardController extends AbstractController
     public function __construct(
         RouterInterface $router,
         ViewInterface $view,
-        private readonly ConfigInterface $config,
-        private readonly TimeDateInterface $timeDate,
+        private readonly EngineStatsService $engineStats,
     ) {
         parent::__construct($router, $view);
     }
@@ -31,11 +29,7 @@ final class DashboardController extends AbstractController
         return $this->view('@Admin/dashboard', [
             'title'     => 'Панель управления',
             'adminUser' => $adminUser,
-            'stats'     => [
-                'php_version' => PHP_VERSION,
-                'app_env'     => (string) $this->config->env('APP_ENV', 'dev'),
-                'server_time' => $this->timeDate->now('d.m.Y H:i:s'),
-            ],
+            'stats'     => $this->engineStats->collect(),
         ], '@Admin/layout');
     }
 }
