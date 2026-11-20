@@ -32,6 +32,18 @@ final class CacheConfigTest extends TestCase
         }
     }
 
+    public function testRedisFailoverIsEnabledByDefaultForRedisDriver(): void
+    {
+        $environment = $this->replaceCacheDriver('redis');
+
+        try {
+            $config = require dirname(__DIR__, 2) . '/config/cache.php';
+            self::assertTrue($config['redis_failover']);
+        } finally {
+            $this->restoreCacheDriver($environment);
+        }
+    }
+
     /**
      * @return array{envExists: bool, envValue: mixed, serverExists: bool, serverValue: mixed}
      */

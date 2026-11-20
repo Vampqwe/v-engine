@@ -33,6 +33,7 @@ final class RedisCache extends AbstractCache
 
             return $payload['data'];
         } catch (Throwable $e) {
+            $this->redis->resetConnection();
             throw new CacheException('Ошибка чтения из RedisCache: ' . $e->getMessage(), 0, $e);
         }
     }
@@ -47,6 +48,7 @@ final class RedisCache extends AbstractCache
             $payload = serialize($this->preparePayload($value, $ttl));
             return (bool) $this->redis->connection()->setex($this->formatKey($key), $ttl, $payload);
         } catch (Throwable $e) {
+            $this->redis->resetConnection();
             throw new CacheException('Ошибка записи в RedisCache: ' . $e->getMessage(), 0, $e);
         }
     }
@@ -57,6 +59,7 @@ final class RedisCache extends AbstractCache
             $this->redis->connection()->del($this->formatKey($key));
             return true;
         } catch (Throwable $e) {
+            $this->redis->resetConnection();
             throw new CacheException('Ошибка удаления ключа в RedisCache: ' . $e->getMessage(), 0, $e);
         }
     }

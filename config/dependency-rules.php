@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Invoker\InvokerInterface;
 use Psr\Container\ContainerInterface;
 use VEngine\System\Cache\CacheInterface;
+use VEngine\System\Cache\CacheFailoverJournal;
+use VEngine\System\Cache\FailoverCache;
 use VEngine\System\Cache\FileCache;
 use VEngine\System\Config\Config;
 use VEngine\System\Config\ConfigInterface;
@@ -76,10 +78,28 @@ return [
         $driver = $config->get('cache', 'driver', 'file');
 
         return match ($driver) {
-            'redis' => new RedisCache(
-                $c->get(RedisClient::class),
-                $c->get(TimeDateInterface::class),
-            ),
+            'redis' => $config->get('cache', 'redis_failover', true)
+                ? new FailoverCache(
+                    new RedisCache(
+                        $c->get(RedisClient::class),
+                        $c->get(TimeDateInterface::class),
+                    ),
+                    new FileCache(
+                        $c->get('path.cache') . '/redis-fallback/data',
+                        $c->get(FileInterface::class),
+                        $c->get(TimeDateInterface::class),
+                    ),
+                    new CacheFailoverJournal(
+                        $c->get('path.cache') . '/redis-fallback/pending.dat',
+                        $c->get(FileInterface::class),
+                    ),
+                    $c->get(TimeDateInterface::class),
+                    $c->get(LoggerInterface::class),
+                )
+                : new RedisCache(
+                    $c->get(RedisClient::class),
+                    $c->get(TimeDateInterface::class),
+                ),
             'file' => new FileCache(
                 $c->get('path.cache'),
                 $c->get(FileInterface::class),

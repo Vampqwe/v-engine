@@ -60,4 +60,9 @@ final class RedisClient
             throw new RedisException('Ошибка инициализации Redis: ' . $e->getMessage(), 0, $e);
         }
     }
+
+    public function resetConnection(): void
+    {
+        $this->client = null;
+    }
 }

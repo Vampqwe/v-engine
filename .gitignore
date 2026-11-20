@@ -1,6 +1,8 @@
 /vendor/
 /log/*.log
-/storage/cache/*.cache
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/cache/redis-fallback/
 /.osp/
 .env
 config.env
