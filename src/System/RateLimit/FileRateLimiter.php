@@ -170,16 +170,23 @@ final class FileRateLimiter implements RateLimiterInterface
             return;
         }
 
-        $this->collectExpiredStates();
+        $this->collectExpiredStatesWithLock(false);
     }
 
-    private function collectExpiredStates(): int
+    public function collectExpiredStates(): int
     {
+        return $this->collectExpiredStatesWithLock(true);
+    }
+
+    private function collectExpiredStatesWithLock(bool $waitForLock): int
+    {
+        $this->ensureDirectory($this->storageDir);
         $lock = @fopen($this->storageDir . '/.gc.lock', 'c');
         if ($lock === false) {
             throw new RateLimiterException('Не удалось открыть блокировку очистки rate limiter');
         }
-        if (!@flock($lock, LOCK_EX | LOCK_NB)) {
+        $operation = LOCK_EX | ($waitForLock ? 0 : LOCK_NB);
+        if (!@flock($lock, $operation)) {
             fclose($lock);
             return 0;
         }

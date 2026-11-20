@@ -26,6 +26,7 @@ use VEngine\System\Monitoring\RequestMetrics;
 use VEngine\System\Map\Map;
 use VEngine\System\Map\MapInterface;
 use VEngine\System\Router\Router;
+use VEngine\System\Router\RouteCacheFingerprint;
 use VEngine\System\Router\RouterInterface;
 use VEngine\System\TimeDate\TimeDate;
 use VEngine\System\TimeDate\TimeDateInterface;
@@ -150,38 +151,43 @@ return [
         $config = $c->get(ConfigInterface::class);
         $isProd = ($config->env('APP_ENV', 'prod') === 'prod');
         $cacheFile = $c->get('path.cache') . '/routes.compiled.php';
+        $routeFiles = glob($c->get('path.routes') . '/*.php') ?: [];
+        $moduleRouteFiles = glob($c->get('path.modules') . '/*/routes.php') ?: [];
+        $allRouteFiles = array_merge($routeFiles, $moduleRouteFiles);
+        $routeFingerprint = $isProd
+            ? RouteCacheFingerprint::fromFiles($allRouteFiles)
+            : '';
 
         if ($isProd && is_file($cacheFile)) {
             $compiled = require $cacheFile;
-            if (is_array($compiled) && isset($compiled['routes'], $compiled['named'])) {
-                $router->loadCompiled($compiled);
+            if (
+                is_array($compiled)
+                && ($compiled['fingerprint'] ?? null) === $routeFingerprint
+                && isset($compiled['routes'], $compiled['named'])
+            ) {
+                $router->loadCompiled([
+                    'routes' => $compiled['routes'],
+                    'named'  => $compiled['named'],
+                ]);
                 return $router;
             }
         }
 
         // 1. Загружаем маршруты выбранного сайта
-        $routesDir = $c->get('path.routes');
-        if (is_dir($routesDir)) {
-            $files = glob($routesDir . '/*.php') ?: [];
-            sort($files);
-            foreach ($files as $file) {
-                $registrar = require $file;
-                if (is_callable($registrar)) {
-                    $registrar($router);
-                }
+        sort($routeFiles);
+        foreach ($routeFiles as $file) {
+            $registrar = require $file;
+            if (is_callable($registrar)) {
+                $registrar($router);
             }
         }
 
         // 2. Автоматически подключаем маршруты изолированных модулей (modules/*/routes.php)
-        $modulesDir = $c->get('path.modules');
-        if (is_dir($modulesDir)) {
-            $moduleRoutes = glob($modulesDir . '/*/routes.php') ?: [];
-            sort($moduleRoutes);
-            foreach ($moduleRoutes as $file) {
-                $registrar = require $file;
-                if (is_callable($registrar)) {
-                    $registrar($router);
-                }
+        sort($moduleRouteFiles);
+        foreach ($moduleRouteFiles as $file) {
+            $registrar = require $file;
+            if (is_callable($registrar)) {
+                $registrar($router);
             }
         }
 
@@ -190,13 +196,33 @@ return [
             $exported = $router->exportCompiled();
             if ($exported !== null) {
                 $cacheDir = dirname($cacheFile);
-                if (!is_dir($cacheDir)) {
-                    @mkdir($cacheDir, 0o755, true);
-                }
                 $tmpFile = $cacheFile . '.' . uniqid('', true) . '.tmp';
-                $content = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($exported, true) . ";\n";
-                if (@file_put_contents($tmpFile, $content, LOCK_EX) !== false) {
-                    @rename($tmpFile, $cacheFile);
+                $cachedRoutes = [
+                    'fingerprint' => $routeFingerprint,
+                    'routes'      => $exported['routes'],
+                    'named'       => $exported['named'],
+                ];
+                $content = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($cachedRoutes, true) . ";\n";
+                try {
+                    if (!is_dir($cacheDir) && !mkdir($cacheDir, 0o755, true) && !is_dir($cacheDir)) {
+                        throw new \RuntimeException("Не удалось создать каталог кэша маршрутов: {$cacheDir}");
+                    }
+                    if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
+                        throw new \RuntimeException("Не удалось записать временный кэш маршрутов: {$tmpFile}");
+                    }
+                    if (!rename($tmpFile, $cacheFile)) {
+                        throw new \RuntimeException("Не удалось заменить кэш маршрутов: {$cacheFile}");
+                    }
+                } catch (\Throwable $e) {
+                    if (is_file($tmpFile)) {
+                        unlink($tmpFile);
+                    }
+                    $c->get(LoggerInterface::class)
+                        ->forModule('Router')
+                        ->error('Не удалось сохранить скомпилированный кэш маршрутов', [
+                            'exception' => $e::class,
+                            'message'   => $e->getMessage(),
+                        ]);
                 }
             }
         }

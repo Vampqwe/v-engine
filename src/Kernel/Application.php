@@ -74,8 +74,11 @@ final class Application
 
         if ($this->isProd) {
             $diCacheDir = $this->paths['path.cache'] . '/di';
-            if (!is_dir($diCacheDir)) {
-                @mkdir($diCacheDir, 0o755, true);
+            if (!is_dir($diCacheDir) && !@mkdir($diCacheDir, 0o755, true) && !is_dir($diCacheDir)) {
+                throw new \RuntimeException("Не удалось создать каталог кэша DI: {$diCacheDir}");
+            }
+            if (!is_writable($diCacheDir)) {
+                throw new \RuntimeException("Каталог кэша DI недоступен для записи: {$diCacheDir}");
             }
             $builder->enableCompilation($diCacheDir);
             $builder->writeProxiesToFile(true, $diCacheDir . '/proxies');

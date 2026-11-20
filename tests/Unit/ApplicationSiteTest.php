@@ -69,4 +69,41 @@ final class ApplicationSiteTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         new Application(dirname(__DIR__, 2));
     }
+
+    public function testReportsWhenProductionDiCacheDirectoryCannotBeCreated(): void
+    {
+        $root = sys_get_temp_dir() . '/vengine-app-cache-' . bin2hex(random_bytes(6));
+        $siteRoot = $root . '/sites/TestSite';
+        foreach (['App', 'routes', 'views', 'public'] as $directory) {
+            mkdir($siteRoot . '/' . $directory, 0o700, true);
+        }
+        mkdir($root . '/storage', 0o700, true);
+        $storageBlocker = $root . '/storage/cache';
+        file_put_contents($storageBlocker, 'not a directory');
+
+        $previousEnv = $_ENV['APP_ENV'] ?? null;
+        $hadEnv = array_key_exists('APP_ENV', $_ENV);
+        $_ENV['APP_ENV'] = 'prod';
+        $_ENV['APP_SITE'] = 'TestSite';
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Не удалось создать каталог кэша DI');
+            new Application($root);
+        } finally {
+            if ($hadEnv) {
+                $_ENV['APP_ENV'] = $previousEnv;
+            } else {
+                unset($_ENV['APP_ENV']);
+            }
+            unlink($storageBlocker);
+            rmdir($root . '/storage');
+            foreach (['App', 'routes', 'views', 'public'] as $directory) {
+                rmdir($siteRoot . '/' . $directory);
+            }
+            rmdir($siteRoot);
+            rmdir($root . '/sites');
+            rmdir($root);
+        }
+    }
 }

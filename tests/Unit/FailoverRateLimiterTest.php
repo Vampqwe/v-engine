@@ -105,9 +105,7 @@ final class FailoverRateLimiterTest extends TestCase
             touch($path, $cutoff - 1);
         }
 
-        $method = new \ReflectionMethod(FileRateLimiter::class, 'collectExpiredStates');
-
-        self::assertSame(200, $method->invoke($limiter));
+        self::assertSame(200, $limiter->collectExpiredStates());
     }
 
     public function testGarbageCollectorRemovesExpiredShardedState(): void
@@ -123,9 +121,7 @@ final class FailoverRateLimiterTest extends TestCase
             'fallback_until'    => $this->clock->timestamp() - 1,
         ], JSON_THROW_ON_ERROR));
 
-        $method = new \ReflectionMethod(FileRateLimiter::class, 'collectExpiredStates');
-
-        self::assertSame(1, $method->invoke($limiter));
+        self::assertSame(1, $limiter->collectExpiredStates());
         self::assertFileDoesNotExist($path);
     }
 

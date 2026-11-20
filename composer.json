@@ -35,6 +35,7 @@
         "cs:fix": "php-cs-fixer fix --no-interaction",
         "test": "phpunit",
         "admin:create": "php bin/create-admin.php",
-        "cache:clear": "php bin/cache-clear.php"
+        "cache:clear": "php bin/cache-clear.php",
+        "rate-limit:gc": "php bin/rate-limit-gc.php"
     }
 }
