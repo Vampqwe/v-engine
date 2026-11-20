@@ -114,18 +114,69 @@ function promptHidden(string $label): string
     echo $label;
 
     if (DIRECTORY_SEPARATOR === '\\') {
-        $command = 'powershell -Command "$p = Read-Host -AsSecureString; '
-            . '[Runtime.InteropServices.Marshal]::PtrToStringAuto('
-            . '[Runtime.InteropServices.Marshal]::SecureStringToBSTR($p))"';
-        $password = shell_exec($command);
-        return is_string($password) ? trim($password) : '';
+        $powerShellScript = '$secure = Read-Host -AsSecureString; '
+            . '$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure); '
+            . 'try { [Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)) } '
+            . 'finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }';
+
+        $candidates = [];
+        $powerShellHome = getenv('PSHOME');
+        if (is_string($powerShellHome) && $powerShellHome !== '') {
+            $candidates[] = $powerShellHome . DIRECTORY_SEPARATOR . 'powershell.exe';
+        }
+
+        $systemRoot = getenv('SystemRoot') ?: getenv('WINDIR');
+        if (is_string($systemRoot) && $systemRoot !== '') {
+            $candidates[] = $systemRoot . '\System32\WindowsPowerShell\v1.0\powershell.exe';
+            $candidates[] = $systemRoot . '\Sysnative\WindowsPowerShell\v1.0\powershell.exe';
+        }
+
+        $candidates[] = 'powershell.exe';
+        $candidates[] = 'pwsh.exe';
+
+        foreach (array_unique($candidates) as $executable) {
+            $pipes = [];
+            $process = @proc_open(
+                [$executable, '-NoProfile', '-Command', $powerShellScript],
+                [
+                    0 => ['file', 'NUL', 'r'],
+                    1 => ['pipe', 'w'],
+                    2 => ['pipe', 'w'],
+                ],
+                $pipes,
+                null,
+                null,
+                ['bypass_shell' => true],
+            );
+
+            if (!is_resource($process)) {
+                continue;
+            }
+
+            $password = stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exitCode = proc_close($process);
+
+            if ($exitCode === 0 && is_string($password)) {
+                return rtrim($password, "\r\n");
+            }
+        }
+
+        throw new RuntimeException(
+            'Не удалось запустить PowerShell для скрытого ввода пароля. '
+            . 'Установите PowerShell и убедитесь, что powershell.exe или pwsh.exe доступен PHP.',
+        );
     }
 
     if (function_exists('shell_exec') && is_string(shell_exec('command -v stty'))) {
-        shell_exec('stty -echo');
-        $line = fgets(STDIN);
-        shell_exec('stty echo');
-        echo "\n";
+        try {
+            shell_exec('stty -echo');
+            $line = fgets(STDIN);
+        } finally {
+            shell_exec('stty echo');
+            echo "\n";
+        }
         return $line !== false ? trim($line) : '';
     }
 
