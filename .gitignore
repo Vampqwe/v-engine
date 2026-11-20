@@ -3,6 +3,7 @@
 /storage/cache/*
 !/storage/cache/.gitkeep
 /storage/cache/redis-fallback/
+/storage/cache/sites/
 /.osp/
 .env
 config.env

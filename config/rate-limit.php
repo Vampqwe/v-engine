@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'fallback_hold_seconds' => 300,
     'global' => [
         'max_attempts' => 60,
         'decay_seconds' => 60,

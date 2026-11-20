@@ -40,6 +40,8 @@ use VEngine\System\Validator\ValidatorInterface;
 use VEngine\System\Cache\RedisCache;
 use VEngine\System\Redis\RedisClient;
 use VEngine\System\RateLimit\RateLimiterInterface;
+use VEngine\System\RateLimit\FailoverRateLimiter;
+use VEngine\System\RateLimit\FileRateLimiter;
 use VEngine\System\RateLimit\RedisRateLimiter;
 use Modules\Admin\Services\AdminUserService;
 use Modules\Admin\Services\EngineStatsService;
@@ -56,7 +58,23 @@ return [
     SessionInterface::class  => DI\autowire(Session::class),
     SecurityInterface::class => DI\autowire(Security::class),
     ValidatorInterface::class => DI\autowire(Validator::class),
-    RateLimiterInterface::class => DI\autowire(RedisRateLimiter::class),
+    RateLimiterInterface::class => static function (ContainerInterface $c): RateLimiterInterface {
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+
+        return new FailoverRateLimiter(
+            new RedisRateLimiter(
+                $c->get(RedisClient::class),
+                $c->get(RequestMetrics::class),
+            ),
+            new FileRateLimiter(
+                $c->get('path.cache') . '/rate-limit',
+                $c->get(TimeDateInterface::class),
+            ),
+            $config->get('rate-limit', 'fallback_hold_seconds', 300),
+            $c->get(LoggerInterface::class),
+        );
+    },
     RedisClient::class => DI\autowire(RedisClient::class),
     AdminUserService::class => DI\autowire(AdminUserService::class),
     EngineStatsService::class => DI\autowire(EngineStatsService::class)
