@@ -23,7 +23,7 @@ final class ErrorHandler implements ErrorHandlerInterface
         private readonly ErrorRendererInterface $renderer,
         private readonly ConfigInterface $config,
         private readonly RequestInterface $request,
-        private readonly SessionInterface $session
+        private readonly SessionInterface $session,
     ) {
         $this->logger = $logger->forModule('Error');
     }
@@ -51,7 +51,7 @@ final class ErrorHandler implements ErrorHandlerInterface
                     0,
                     $error['type'],
                     $error['file'],
-                    $error['line']
+                    $error['line'],
                 );
                 $this->handleException($exception);
             }
@@ -128,7 +128,7 @@ final class ErrorHandler implements ErrorHandlerInterface
             $oldInput['password'],
             $oldInput['password_confirmation'],
             $oldInput['current_password'],
-            $oldInput['_csrf_token']
+            $oldInput['_csrf_token'],
         );
         $this->session->flash('_old_input', $oldInput);
 

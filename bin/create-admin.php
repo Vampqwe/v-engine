@@ -14,6 +14,11 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 
+if ($argc > 3) {
+    fwrite(STDERR, "Передавайте только email и имя; пароль вводится отдельно скрытым вводом.\n");
+    exit(2);
+}
+
 $basePath = dirname(__DIR__);
 require $basePath . '/vendor/autoload.php';
 
@@ -48,7 +53,7 @@ try {
     // 2. Считываем аргументы из командной строки или запрашиваем интерактивно
     $email = $argv[1] ?? prompt('Введите Email администратора: ');
     $name = $argv[2] ?? prompt('Введите имя [Admin]: ', 'Admin');
-    $password = $argv[3] ?? promptHidden('Введите пароль (минимум 8 символов): ');
+    $password = promptHidden('Введите пароль (минимум 8 символов): ');
 
     // 3. Валидируем данные штатным валидатором (включая проверку unique в БД)
     $data = [

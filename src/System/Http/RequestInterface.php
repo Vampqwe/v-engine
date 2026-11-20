@@ -15,5 +15,5 @@ interface RequestInterface
     public function isAjax(): bool;
     public function withAttribute(string $name, mixed $value): self;
     public function attribute(string $name, mixed $default = null): mixed;
-	public function ip(): string;
+    public function ip(): string;
 }

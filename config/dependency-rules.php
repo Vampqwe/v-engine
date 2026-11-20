@@ -36,6 +36,8 @@ use VEngine\System\Validator\Validator;
 use VEngine\System\Validator\ValidatorInterface;
 use VEngine\System\Cache\RedisCache;
 use VEngine\System\Redis\RedisClient;
+use VEngine\System\RateLimit\RateLimiterInterface;
+use VEngine\System\RateLimit\RedisRateLimiter;
 use Modules\Admin\Services\AdminUserService;
 
 return [
@@ -49,14 +51,15 @@ return [
     SessionInterface::class  => DI\autowire(Session::class),
     SecurityInterface::class => DI\autowire(Security::class),
     ValidatorInterface::class => DI\autowire(Validator::class),
-	RedisClient::class => DI\autowire(RedisClient::class),
-	AdminUserService::class => DI\autowire(AdminUserService::class),
-	
+    RateLimiterInterface::class => DI\autowire(RedisRateLimiter::class),
+    RedisClient::class => DI\autowire(RedisClient::class),
+    AdminUserService::class => DI\autowire(AdminUserService::class),
+
 
     ConfigInterface::class => static function (ContainerInterface $c): ConfigInterface {
         return new Config(
             $c->get('path.root'),
-            $c->get(MapInterface::class)
+            $c->get(MapInterface::class),
         );
     },
 
@@ -64,30 +67,30 @@ return [
         return new Logger(
             $c->get('path.log'),
             $c->get(FileInterface::class),
-            $c->get(TimeDateInterface::class)
+            $c->get(TimeDateInterface::class),
         );
     },
 
     CacheInterface::class => static function (ContainerInterface $c): CacheInterface {
-    /** @var ConfigInterface $config */
-		$config = $c->get(ConfigInterface::class);
-		$driver = (string) $config->env('CACHE_DRIVER', 'file');
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+        $driver = (string) $config->env('CACHE_DRIVER', 'file');
 
-		if ($driver === 'redis') {
-			return new RedisCache(
-				$c->get(RedisClient::class),
-				$c->get(TimeDateInterface::class)
-			);
-		}
+        if ($driver === 'redis') {
+            return new RedisCache(
+                $c->get(RedisClient::class),
+                $c->get(TimeDateInterface::class),
+            );
+        }
 
-		return new FileCache(
-			$c->get('path.cache'),
-			$c->get(FileInterface::class),
-			$c->get(TimeDateInterface::class)
-		);
-	},
+        return new FileCache(
+            $c->get('path.cache'),
+            $c->get(FileInterface::class),
+            $c->get(TimeDateInterface::class),
+        );
+    },
 
-        RouterInterface::class => static function (ContainerInterface $c): RouterInterface {
+    RouterInterface::class => static function (ContainerInterface $c): RouterInterface {
         $router = new Router($c, $c->get(InvokerInterface::class));
 
         /** @var ConfigInterface $config */
@@ -154,7 +157,7 @@ return [
             $c->get('path.views'),
             $c->get(SecurityInterface::class),
             $c->get(RouterInterface::class),
-            $c->get(SessionInterface::class)
+            $c->get(SessionInterface::class),
         );
     },
 ];

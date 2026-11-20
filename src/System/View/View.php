@@ -13,7 +13,7 @@ final class View implements ViewInterface
 {
     /** @var array<string, mixed> */
     private array $sharedData = [];
-	    /** @var array<string, mixed>|null */
+    /** @var array<string, mixed>|null */
     private ?array $cachedOldInput = null;
 
     /** @var array<string, string[]>|null */
@@ -23,10 +23,10 @@ final class View implements ViewInterface
         private readonly string $viewsDir,
         private readonly SecurityInterface $security,
         private readonly RouterInterface $router,
-        private readonly SessionInterface $session
+        private readonly SessionInterface $session,
     ) {}
-	
-	public function old(string $field, mixed $default = ''): string
+
+    public function old(string $field, mixed $default = ''): string
     {
         if ($this->cachedOldInput === null) {
             $flashed = $this->session->getFlash('_old_input', []);
@@ -46,7 +46,7 @@ final class View implements ViewInterface
 
         return $this->cachedErrors[$field][0] ?? null;
     }
-	
+
     public function share(string $key, mixed $value): void
     {
         $this->sharedData[$key] = $value;

@@ -9,7 +9,7 @@ final class Response implements ResponseInterface
     public function __construct(
         private string $body = '',
         private int $statusCode = 200,
-        private array $headers = ['Content-Type' => 'text/html; charset=UTF-8']
+        private array $headers = ['Content-Type' => 'text/html; charset=UTF-8'],
     ) {}
 
     public static function html(string $content, int $status = 200): self

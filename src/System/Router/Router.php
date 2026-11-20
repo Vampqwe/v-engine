@@ -23,7 +23,7 @@ final class Router implements RouterInterface
 
     public function __construct(
         private readonly ContainerInterface $container,
-        private readonly InvokerInterface $invoker
+        private readonly InvokerInterface $invoker,
     ) {}
 
     public function get(string $path, callable|array $handler): Route
@@ -65,7 +65,7 @@ final class Router implements RouterInterface
                     throw new RouterException("Дублирующееся имя маршрута: '{$fullName}'");
                 }
                 $this->namedRoutes[$fullName] = $route;
-            }
+            },
         );
 
         $this->routes[] = $route;
@@ -139,7 +139,7 @@ final class Router implements RouterInterface
                     return $middleware->process($req, $next);
                 };
             },
-            $coreHandler
+            $coreHandler,
         );
 
         return $pipeline($request);
@@ -179,8 +179,8 @@ final class Router implements RouterInterface
         $normalized = '/' . trim($path, '/');
         return $normalized === '' ? '/' : $normalized;
     }
-	
-	    /**
+
+    /**
      * Экспортирует все маршруты и карту именованных маршрутов.
      * Возвращает null, если среди обработчиков есть замыкания (Closure).
      *

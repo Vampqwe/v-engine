@@ -18,7 +18,7 @@
 ## Требования
 
 * **PHP** `>= 8.2`
-* **Расширения PHP:** `ext-pdo`, `ext-json`, `ext-mbstring`
+* **Расширения PHP:** `ext-pdo`, `ext-pdo_mysql`, `ext-json`, `ext-mbstring`
 * **Composer** `2.x`
 * **Веб-сервер:** Apache (с `mod_rewrite`), Nginx или встроенный сервер PHP для разработки
 
@@ -28,7 +28,7 @@
 
 1. **Клонируйте репозиторий и установите зависимости:**
    ```bash
-   git clone https://github.com
+   git clone https://github.com/Vampqwe/v-engine.git
    cd v-engine
    composer install
    ```
@@ -38,6 +38,7 @@
    ```bash
    cp .env.example .env
    ```
+   В `APP_ENV=prod` флаг `SESSION_SECURE` по умолчанию включен; явно устанавливайте `SESSION_SECURE=false` только для локального HTTP.
 
 3. **Запустите встроенный сервер для разработки:**
    ```bash
@@ -49,7 +50,10 @@
    ```bash
    composer cs:check   # Проверка стиля кода
    composer cs:fix     # Автоматическое форматирование
+   composer test       # Запуск модульных тестов
    ```
+
+Для создания администратора запустите `php bin/create-admin.php [email] [name]`. Пароль вводится отдельно в скрытом интерактивном запросе и не передается аргументом процесса.
 
 ---
 
@@ -116,10 +120,12 @@ use App\Controllers\HomeController;
 use App\Middleware\CsrfMiddleware;
 use VEngine\System\Router\RouterInterface;
 
-return static function (RouterInterface \$router): void {
-    \(router->get('/', [HomeController::class, 'index'])->name('home');\)router->get('/user/{id:\d+}', [HomeController::class, 'show'])->name('user.show');
+return static function (RouterInterface $router): void {
+    $router->get('/', [HomeController::class, 'index'])->name('home');
+    $router->get('/user/{id:\d+}', [HomeController::class, 'show'])->name('user.show');
 
-    \$router->group(['prefix' => '/profile', 'middleware' => [CsrfMiddleware::class]], static function (RouterInterface \(router): void {\)router->post('/update', [HomeController::class, 'update'])->name('profile.update');
+    $router->group(['prefix' => '/profile', 'middleware' => [CsrfMiddleware::class]], static function (RouterInterface $router): void {
+        $router->post('/update', [HomeController::class, 'update'])->name('profile.update');
     });
 };
 ```
@@ -145,34 +151,34 @@ final class HomeController extends AbstractController
 {
     public function index(): ResponseInterface
     {
-        return \$this->view('home/index', [
+        return $this->view('home/index', [
             'title'    => 'Главная страница',
             'username' => 'Developer',
         ]);
     }
 
     public function register(
-        RequestInterface \$request,
-        ValidatorInterface \$validator,
-        SecurityInterface \$security,
-        SessionInterface \$session,
-        DataBaseInterface \$db
+        RequestInterface $request,
+        ValidatorInterface $validator,
+        SecurityInterface $security,
+        SessionInterface $session,
+        DataBaseInterface $db
     ): ResponseInterface {
-        \$data = validator->validateOrFail(request->all(), [
+        $data = $validator->validateOrFail($request->all(), [
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        \$db->query(
+        $db->query(
             'INSERT INTO users (email, password) VALUES (:email, :password)',
             [
-                'email'    => \$data['email'],
-                'password' => security->hashPassword(data['password']),
+                'email'    => $data['email'],
+                'password' => $security->hashPassword($data['password']),
             ]
         );
 
-        \$session->flash('notice', 'Регистрация прошла успешно!');
-        return \$this->redirectToRoute('home');
+        $session->flash('notice', 'Регистрация прошла успешно!');
+        return $this->redirectToRoute('home');
     }
 }
 ```
@@ -194,18 +200,18 @@ use VEngine\System\Session\SessionInterface;
 final class AuthMiddleware extends AbstractMiddleware
 {
     public function __construct(
-        private readonly SessionInterface \$session
+        private readonly SessionInterface $session
     ) {}
 
-    public function process(RequestInterface request, callable next): ResponseInterface
+    public function process(RequestInterface $request, callable $next): ResponseInterface
     {
-        if (!\$this->session->has('user.id')) {
-            return this->isJsonRequest(request)
-                ? \$this->jsonError('Требуется авторизация', 401)
-                : \$this->redirect('/');
+        if (!$this->session->has('user.id')) {
+            return $this->isJsonRequest($request)
+                ? $this->jsonError('Требуется авторизация', 401)
+                : $this->redirect('/');
         }
 
-        return next(request);
+        return $next($request);
     }
 }
 ```
@@ -214,13 +220,13 @@ final class AuthMiddleware extends AbstractMiddleware
 
 ```php
 <?php
-/** @var \VEngine\System\View\ViewInterface \$this */
-/** @var string \$username */
+/** @var \VEngine\System\View\ViewInterface $this */
+/** @var string $username */
 ?>
-<h1>Привет, <?= this->escape(username) ?>!</h1>
+<h1>Привет, <?= $this->escape($username) ?>!</h1>
 
-<form method="POST" action="<?= \$this->route('profile.update') ?>">
-    <?= \$this->csrfField() ?>
+<form method="POST" action="<?= $this->route('profile.update') ?>">
+    <?= $this->csrfField() ?>
     <input type="text" name="name" required>
     <button type="submit">Сохранить</button>
 </form>

@@ -12,7 +12,7 @@ final class Security implements SecurityInterface
     private const CSRF_SESSION_KEY = '_vengine_csrf_token';
 
     public function __construct(
-        private readonly SessionInterface $session
+        private readonly SessionInterface $session,
     ) {}
 
     public function hashPassword(string $password): string

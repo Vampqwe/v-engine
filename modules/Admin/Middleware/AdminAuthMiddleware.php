@@ -20,7 +20,7 @@ final class AdminAuthMiddleware extends AbstractMiddleware
         private readonly SessionInterface $session,
         private readonly RouterInterface $router,
         private readonly AdminUserService $adminUsers,
-        LoggerInterface $logger
+        LoggerInterface $logger,
     ) {
         $this->logger = $logger->forModule('Admin');
     }

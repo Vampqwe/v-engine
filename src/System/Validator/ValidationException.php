@@ -15,7 +15,7 @@ class ValidationException extends HttpException
     public function __construct(
         private readonly array $errors,
         string $message = 'Ошибка валидации входных данных',
-        ?Throwable $previous = null
+        ?Throwable $previous = null,
     ) {
         parent::__construct($message, 422, $previous);
     }

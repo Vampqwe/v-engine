@@ -14,7 +14,7 @@ final class Validator implements ValidatorInterface
 
     public function __construct(
         private readonly MapInterface $map,
-        private readonly DataBaseInterface $db
+        private readonly DataBaseInterface $db,
     ) {}
 
     public function validate(array $data, array $rules, array $messages = []): bool
@@ -167,12 +167,12 @@ final class Validator implements ValidatorInterface
         if ($exceptId !== null) {
             $stmt = $this->db->query(
                 "SELECT COUNT(*) FROM `{$table}` WHERE `{$column}` = :val AND `id` != :id",
-                ['val' => $value, 'id' => $exceptId]
+                ['val' => $value, 'id' => $exceptId],
             );
         } else {
             $stmt = $this->db->query(
                 "SELECT COUNT(*) FROM `{$table}` WHERE `{$column}` = :val",
-                ['val' => $value]
+                ['val' => $value],
             );
         }
 
@@ -198,7 +198,7 @@ final class Validator implements ValidatorInterface
 
         $stmt = $this->db->query(
             "SELECT COUNT(*) FROM `{$table}` WHERE `{$column}` = :val",
-            ['val' => $value]
+            ['val' => $value],
         );
 
         if ((int) $stmt->fetchColumn() === 0) {

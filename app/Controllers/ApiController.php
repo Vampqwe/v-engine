@@ -13,12 +13,12 @@ use VEngine\System\View\ViewInterface;
 final class ApiController extends AbstractController
 {
     public function __construct(
-    RouterInterface $router,
-    ViewInterface $view,
-    private readonly TimeDateInterface $timeDate
-	) {
-		parent::__construct($router, $view);
-	}
+        RouterInterface $router,
+        ViewInterface $view,
+        private readonly TimeDateInterface $timeDate,
+    ) {
+        parent::__construct($router, $view);
+    }
 
     public function health(): ResponseInterface
     {

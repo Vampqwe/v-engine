@@ -25,4 +25,9 @@ final class LoginRateLimitMiddleware extends RateLimitMiddleware
     {
         return self::BUCKET;
     }
+
+    protected function failOpen(): bool
+    {
+        return false;
+    }
 }

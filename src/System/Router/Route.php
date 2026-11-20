@@ -21,7 +21,7 @@ final class Route
         private readonly mixed $handler,
         array $middlewares = [],
         private readonly ?\Closure $onNamedCallback = null,
-        bool $skipCompile = false
+        bool $skipCompile = false,
     ) {
         $this->middlewares = $middlewares;
         if (!$skipCompile) {
@@ -119,7 +119,7 @@ final class Route
             $data['handler'],
             (array) ($data['middlewares'] ?? []),
             null,
-            true
+            true,
         );
         $route->name = $data['name'] ?? null;
         $route->regex = (string) $data['regex'];
@@ -130,12 +130,26 @@ final class Route
 
     private function compilePattern(): void
     {
-        $regex = preg_replace_callback('/\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([^}]+))?\}/', function (array $m): string {
-            $this->paramNames[] = $m[1];
-            $constraint = $m[2] ?? '[^/]+';
-            return "(?P<{$m[1]}>{$constraint})";
-        }, $this->pattern);
+        $matches = [];
+        preg_match_all('/\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([^}]+))?\}/', $this->pattern, $matches, PREG_OFFSET_CAPTURE);
 
+        $regex = '';
+        $offset = 0;
+        foreach ($matches[0] as $index => $match) {
+            [$placeholder, $placeholderOffset] = $match;
+            $regex .= preg_quote(substr($this->pattern, $offset, $placeholderOffset - $offset), '#');
+
+            $name = $matches[1][$index][0];
+            $constraint = $matches[2][$index][1] === -1
+                ? '[^/]+'
+                : $matches[2][$index][0];
+            $constraint = str_replace('#', '\#', $constraint);
+            $this->paramNames[] = $name;
+            $regex .= "(?P<{$name}>{$constraint})";
+            $offset = $placeholderOffset + strlen($placeholder);
+        }
+
+        $regex .= preg_quote(substr($this->pattern, $offset), '#');
         $this->regex = '#^' . $regex . '$#u';
     }
 }

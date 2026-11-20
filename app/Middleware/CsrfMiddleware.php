@@ -19,7 +19,7 @@ final class CsrfMiddleware extends AbstractMiddleware
 
     public function __construct(
         private readonly SecurityInterface $security,
-        LoggerInterface $logger
+        LoggerInterface $logger,
     ) {
         $this->logger = $logger->forModule('Security');
     }

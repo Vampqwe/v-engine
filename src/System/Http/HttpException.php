@@ -12,7 +12,7 @@ class HttpException extends BaseException
     public function __construct(
         string $message = '',
         private readonly int $statusCode = 500,
-        ?Throwable $previous = null
+        ?Throwable $previous = null,
     ) {
         parent::__construct($message, $statusCode, $previous);
     }

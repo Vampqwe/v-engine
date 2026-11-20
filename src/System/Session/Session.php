@@ -13,7 +13,7 @@ final class Session implements SessionInterface
 
     public function __construct(
         private readonly ConfigInterface $config,
-        private readonly MapInterface $map
+        private readonly MapInterface $map,
     ) {}
 
     public function start(): void
@@ -159,7 +159,7 @@ final class Session implements SessionInterface
                 $params['path'],
                 $params['domain'],
                 $params['secure'],
-                $params['httponly']
+                $params['httponly'],
             );
         }
 

@@ -13,7 +13,7 @@ final class Logger implements LoggerInterface
     public function __construct(
         private readonly string $logDir,
         private readonly FileInterface $file,
-        private readonly TimeDateInterface $timeDate
+        private readonly TimeDateInterface $timeDate,
     ) {}
     public function forModule(string $moduleName): self
     {

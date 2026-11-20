@@ -16,7 +16,7 @@ final class DataBase implements DataBaseInterface
     private LoggerInterface $logger;
     public function __construct(
         private readonly ConfigInterface $config,
-        LoggerInterface $logger
+        LoggerInterface $logger,
     ) {
         $this->logger = $logger->forModule('DataBase');
     }

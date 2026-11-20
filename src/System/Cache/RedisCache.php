@@ -12,7 +12,7 @@ final class RedisCache extends AbstractCache
 {
     public function __construct(
         private readonly RedisClient $redis,
-        TimeDateInterface $timeDate
+        TimeDateInterface $timeDate,
     ) {
         parent::__construct($timeDate);
     }

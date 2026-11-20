@@ -13,7 +13,7 @@ abstract class AbstractController
 {
     public function __construct(
         protected readonly RouterInterface $router,
-        protected readonly ViewInterface $view
+        protected readonly ViewInterface $view,
     ) {}
 
     protected function view(string $template, array $data = [], ?string $layout = 'layouts/main', int $status = 200): ResponseInterface

@@ -17,15 +17,15 @@ final class HomeController extends AbstractController
             'username' => 'Developer',
         ]);
     }
-	
-	public function submit(RequestInterface $request, SessionInterface $session): ResponseInterface
+
+    public function submit(RequestInterface $request, SessionInterface $session): ResponseInterface
     {
         $message = (string) $request->input('message', '');
         $session->flash('notice', 'Получено сообщение: ' . $message);
 
         return $this->redirectToRoute('home');
     }
-	
+
     public function hello(string $name): ResponseInterface
     {
         $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');

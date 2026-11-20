@@ -13,7 +13,7 @@ final class RedisClient
     private ?Redis $client = null;
 
     public function __construct(
-        private readonly ConfigInterface $config
+        private readonly ConfigInterface $config,
     ) {}
 
     public function connection(): Redis

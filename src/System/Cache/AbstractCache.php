@@ -9,7 +9,7 @@ use VEngine\System\TimeDate\TimeDateInterface;
 abstract class AbstractCache implements CacheInterface
 {
     public function __construct(
-        protected readonly TimeDateInterface $timeDate
+        protected readonly TimeDateInterface $timeDate,
     ) {}
     protected function preparePayload(mixed $value, int $ttl): array
     {

@@ -20,10 +20,10 @@ try {
         Dotenv::createImmutable(BASE_PATH)->safeLoad();
     }
 
-		$app = new Application(BASE_PATH);
-		$app->run();
-	} catch (\Throwable $e) {
-		while (ob_get_level() > 0) {
+    $app = new Application(BASE_PATH);
+    $app->run();
+} catch (\Throwable $e) {
+    while (ob_get_level() > 0) {
         ob_end_clean();
     }
 
@@ -33,7 +33,7 @@ try {
         date('Y-m-d H:i:s'),
         $e->getMessage(),
         $e->getFile(),
-        $e->getLine()
+        $e->getLine(),
     );
     @file_put_contents(BASE_PATH . '/log/Bootstrap.log', $logLine, FILE_APPEND | LOCK_EX);
 

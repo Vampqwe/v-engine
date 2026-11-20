@@ -11,7 +11,7 @@ final class AdminUserService
 {
     public function __construct(
         private readonly DataBaseInterface $db,
-        private readonly SecurityInterface $security
+        private readonly SecurityInterface $security,
     ) {}
 
     /**
@@ -21,7 +21,7 @@ final class AdminUserService
     {
         $stmt = $this->db->query(
             'SELECT id, email, password_hash, name FROM `admin_users` WHERE `email` = :email LIMIT 1',
-            ['email' => $email]
+            ['email' => $email],
         );
 
         $user = $stmt->fetch();
@@ -35,7 +35,7 @@ final class AdminUserService
     {
         $stmt = $this->db->query(
             'SELECT id, email, name FROM `admin_users` WHERE `id` = :id LIMIT 1',
-            ['id' => $id]
+            ['id' => $id],
         );
 
         $user = $stmt->fetch();
@@ -63,7 +63,7 @@ final class AdminUserService
             $newHash = $this->security->hashPassword($password);
             $this->db->query(
                 'UPDATE `admin_users` SET `password_hash` = :hash WHERE `id` = :id',
-                ['hash' => $newHash, 'id' => $user['id']]
+                ['hash' => $newHash, 'id' => $user['id']],
             );
         }
 
@@ -80,7 +80,7 @@ final class AdminUserService
                 'email' => $email,
                 'hash'  => $hash,
                 'name'  => $name,
-            ]
+            ],
         );
     }
 }

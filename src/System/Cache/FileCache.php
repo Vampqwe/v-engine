@@ -12,7 +12,7 @@ final class FileCache extends AbstractCache
     public function __construct(
         private readonly string $cacheDir,
         private readonly FileInterface $file,
-        TimeDateInterface $timeDate
+        TimeDateInterface $timeDate,
     ) {
         parent::__construct($timeDate);
     }

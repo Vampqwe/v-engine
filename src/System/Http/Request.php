@@ -18,14 +18,22 @@ final class Request implements RequestInterface
 
     public function __construct(
         private readonly MapInterface $map,
-        private readonly ConfigInterface $config
+        private readonly ConfigInterface $config,
+        ?array $serverParams = null,
+        ?array $queryParams = null,
+        ?array $postParams = null,
+        ?string $rawBody = null,
     ) {
-        $this->method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-        $rawUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $serverParams ??= $_SERVER;
+        $queryParams ??= $_GET;
+        $postParams ??= $_POST;
+
+        $this->method = strtoupper($serverParams['REQUEST_METHOD'] ?? 'GET');
+        $rawUri = parse_url($serverParams['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $this->uri = $rawUri !== '/' ? rtrim($rawUri, '/') : '/';
-        $this->queryParams = $_GET;
-        $this->headers = $this->extractHeaders($_SERVER);
-        $this->bodyParams = $this->extractBody();
+        $this->queryParams = $queryParams;
+        $this->headers = $this->extractHeaders($serverParams);
+        $this->bodyParams = $this->extractBody($postParams, $rawBody);
     }
 
     public function method(): string
@@ -169,24 +177,45 @@ final class Request implements RequestInterface
                 $headers[$name] = $value;
             }
         }
+
+        foreach (['CONTENT_TYPE', 'CONTENT_LENGTH'] as $key) {
+            if (isset($server[$key])) {
+                $headers[strtolower(str_replace('_', '-', $key))] = $server[$key];
+            }
+        }
+
         return $headers;
     }
 
-    private function extractBody(): array
+    private function extractBody(array $postParams, ?string $rawBody): array
     {
-        if (!empty($_POST)) {
-            return $_POST;
+        if ($postParams !== []) {
+            return $postParams;
         }
 
-        $contentType = (string) $this->header('content-type', '');
-        if (str_contains($contentType, 'application/json')) {
-            $raw = file_get_contents('php://input');
-            if ($raw !== false && $raw !== '') {
-                $decoded = json_decode($raw, true);
-                if (is_array($decoded)) {
-                    return $decoded;
-                }
+        $rawBody ??= file_get_contents('php://input');
+        if ($rawBody === false || $rawBody === '') {
+            return [];
+        }
+
+        $contentType = strtolower(trim(explode(';', (string) $this->header('content-type', ''), 2)[0]));
+        if ($contentType === 'application/json' || str_ends_with($contentType, '+json')) {
+            try {
+                $decoded = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                throw new HttpException('Некорректное JSON-тело запроса', 400, $e);
             }
+
+            if (!is_array($decoded)) {
+                throw new HttpException('JSON-тело запроса должно быть объектом или массивом', 400);
+            }
+
+            return $decoded;
+        }
+
+        if ($contentType === 'application/x-www-form-urlencoded') {
+            parse_str($rawBody, $parsed);
+            return $parsed;
         }
 
         return [];

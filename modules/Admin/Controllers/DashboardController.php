@@ -18,7 +18,7 @@ final class DashboardController extends AbstractController
         RouterInterface $router,
         ViewInterface $view,
         private readonly ConfigInterface $config,
-        private readonly TimeDateInterface $timeDate
+        private readonly TimeDateInterface $timeDate,
     ) {
         parent::__construct($router, $view);
     }

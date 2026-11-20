@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Modules\Admin\Controllers;
 
 use App\Controllers\AbstractController;
-use Modules\Admin\Middleware\LoginRateLimitMiddleware;
 use Modules\Admin\Services\AdminUserService;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Logger\LoggerInterface;
+use VEngine\System\RateLimit\RateLimiterException;
+use VEngine\System\RateLimit\RateLimiterInterface;
 use VEngine\System\Router\RouterInterface;
 use VEngine\System\Session\SessionInterface;
 use VEngine\System\Validator\ValidatorInterface;
@@ -25,8 +26,8 @@ final class AuthController extends AbstractController
         private readonly SessionInterface $session,
         private readonly ValidatorInterface $validator,
         private readonly AdminUserService $adminUsers,
-        private readonly LoginRateLimitMiddleware $loginRateLimiter,
-        LoggerInterface $logger
+        private readonly RateLimiterInterface $rateLimiter,
+        LoggerInterface $logger,
     ) {
         parent::__construct($router, $view);
         $this->logger = $logger->forModule('Admin');
@@ -84,7 +85,14 @@ final class AuthController extends AbstractController
         }
 
         // Сбрасываем счетчик неудачных попыток для этого IP
-        $this->loginRateLimiter->clear(LoginRateLimitMiddleware::BUCKET, $request->ip());
+        try {
+            $this->rateLimiter->clear('admin_login', $request->ip());
+        } catch (RateLimiterException $e) {
+            $this->logger->error('Не удалось сбросить лимит попыток входа', [
+                'ip'    => $request->ip(),
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Защита от фиксации сессии (Session Fixation)
         $this->session->regenerate(true);
