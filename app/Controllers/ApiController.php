@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Router\RouterInterface;
 use VEngine\System\TimeDate\TimeDateInterface;
@@ -29,11 +28,10 @@ final class ApiController extends AbstractController
         ]);
     }
 
-    public function profile(RequestInterface $request): ResponseInterface
+    public function profile(): ResponseInterface
     {
         return $this->json([
             'message' => 'Доступ разрешен',
-            'token'   => $request->attribute('auth.token'),
         ]);
     }
 }
