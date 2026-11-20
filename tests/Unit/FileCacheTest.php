@@ -7,6 +7,7 @@ namespace Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use VEngine\System\Cache\FileCache;
 use VEngine\System\File\File;
+use VEngine\System\File\FileException;
 use VEngine\System\File\FileInterface;
 use VEngine\System\TimeDate\TimeDate;
 
@@ -44,6 +45,45 @@ final class FileCacheTest extends TestCase
         self::assertSame($this->directory, dirname($this->file->writtenPaths[0]));
         self::assertSame('complete replacement', $this->cache->get('shared-key'));
         self::assertSame([], glob($target . '.*') ?: []);
+    }
+
+    public function testConcurrentDeletionDuringReadIsTreatedAsCacheMiss(): void
+    {
+        $file = new class implements FileInterface {
+            private bool $firstExistsCheck = true;
+
+            public function exists(string $path): bool
+            {
+                if ($this->firstExistsCheck) {
+                    $this->firstExistsCheck = false;
+                    return true;
+                }
+
+                return false;
+            }
+
+            public function read(string $path): string
+            {
+                throw new FileException('Cache entry was deleted');
+            }
+
+            public function write(string $path, string $content, bool $append = false): bool
+            {
+                return false;
+            }
+
+            public function ensureDirectory(string $dirPath): void {}
+        };
+        $cache = new FileCache($this->directory, $file, new TimeDate());
+
+        self::assertSame('fallback', $cache->get('concurrently-deleted', 'fallback'));
+    }
+
+    public function testNonPositiveTtlDeletesInsteadOfWriting(): void
+    {
+        self::assertTrue($this->cache->set('expired', 'value', 60));
+        self::assertTrue($this->cache->set('expired', 'replacement', 0));
+        self::assertSame('default', $this->cache->get('expired', 'default'));
     }
 }
 

@@ -62,6 +62,14 @@ final class Security implements SecurityInterface
         return $token;
     }
 
+    public function rotateCsrfToken(): string
+    {
+        $token = $this->randomToken(32);
+        $this->session->set(self::CSRF_SESSION_KEY, $token);
+
+        return $token;
+    }
+
     public function verifyCsrfToken(?string $token): bool
     {
         if ($token === null || $token === '') {

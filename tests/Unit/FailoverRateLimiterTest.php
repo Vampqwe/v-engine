@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use Closure;
 use PHPUnit\Framework\TestCase;
 use VEngine\System\Logger\LoggerInterface;
 use VEngine\System\RateLimit\FailoverRateLimiter;
@@ -27,8 +28,17 @@ final class FailoverRateLimiterTest extends TestCase
 
     protected function tearDown(): void
     {
+        foreach (glob($this->directory . '/*/*.json') ?: [] as $path) {
+            unlink($path);
+        }
+        foreach (glob($this->directory . '/*', GLOB_ONLYDIR) ?: [] as $path) {
+            rmdir($path);
+        }
         foreach (glob($this->directory . '/*') ?: [] as $path) {
             unlink($path);
+        }
+        if (is_file($this->directory . '/.gc.lock')) {
+            unlink($this->directory . '/.gc.lock');
         }
         if (is_dir($this->directory)) {
             rmdir($this->directory);
@@ -65,6 +75,25 @@ final class FailoverRateLimiterTest extends TestCase
         self::assertSame(2, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
     }
 
+    public function testGarbageCollectorRemovesExpiredShardedState(): void
+    {
+        $limiter = new FileRateLimiter($this->directory, $this->clock);
+        $hash = hash('sha256', "admin_login\0192.0.2.3");
+        $directory = $this->directory . '/' . substr($hash, 0, 2);
+        mkdir($directory, 0o700, true);
+        $path = $directory . '/' . $hash . '.json';
+        file_put_contents($path, json_encode([
+            'attempts'          => 1,
+            'window_started_at' => $this->clock->timestamp() - 86401,
+            'fallback_until'    => $this->clock->timestamp() - 1,
+        ], JSON_THROW_ON_ERROR));
+
+        $method = new \ReflectionMethod(FileRateLimiter::class, 'collectExpiredStates');
+
+        self::assertSame(1, $method->invoke($limiter));
+        self::assertFileDoesNotExist($path);
+    }
+
     public function testClearResetsPrimaryAndFallbackCountersWhileFallbackIsActive(): void
     {
         $redis = new TestRedisRateLimiter();
@@ -77,6 +106,19 @@ final class FailoverRateLimiterTest extends TestCase
 
         self::assertSame(1, $redis->clearCalls);
         $this->clock->advance(301);
+        self::assertSame(1, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
+    }
+
+    public function testDoesNotCountSuccessfulPrimaryHitAgainWhenFailoverActivatesConcurrently(): void
+    {
+        $redis = new TestRedisRateLimiter();
+        $fallback = new FileRateLimiter($this->directory, $this->clock);
+        $redis->afterHit = static function () use ($fallback): void {
+            $fallback->activateFailover('admin_login', '192.0.2.1', 300);
+        };
+        $limiter = $this->makeFailover($redis, $fallback);
+
+        self::assertSame(1, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
         self::assertSame(1, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
     }
 
@@ -98,6 +140,7 @@ final class FailoverRateLimiterTest extends TestCase
 
 final class TestRedisRateLimiter implements RateLimiterInterface
 {
+    public ?Closure $afterHit = null;
     public bool $available = true;
     public int $hitCalls = 0;
     public int $clearCalls = 0;
@@ -111,6 +154,9 @@ final class TestRedisRateLimiter implements RateLimiterInterface
         }
 
         $this->successfulHits++;
+        if ($this->afterHit !== null) {
+            ($this->afterHit)();
+        }
         return new RateLimitResult($this->successfulHits, $decaySeconds);
     }
 

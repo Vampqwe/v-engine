@@ -8,6 +8,7 @@ use App\Controllers\AbstractController;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Session\SessionInterface;
+use VEngine\System\Validator\ValidatorInterface;
 
 final class HomeController extends AbstractController
 {
@@ -18,9 +19,21 @@ final class HomeController extends AbstractController
         ]);
     }
 
-    public function submit(RequestInterface $request, SessionInterface $session): ResponseInterface
-    {
-        $message = (string) $request->input('message', '');
+    public function submit(
+        RequestInterface $request,
+        SessionInterface $session,
+        ValidatorInterface $validator,
+    ): ResponseInterface {
+        $validated = $validator->validateOrFail(
+            ['message' => $request->input('message')],
+            ['message' => 'required|string|max:1000'],
+            [
+                'message.required' => 'Введите сообщение.',
+                'message.string'   => 'Сообщение должно быть текстом.',
+                'message.max'      => 'Сообщение не должно превышать 1000 символов.',
+            ],
+        );
+        $message = (string) $validated['message'];
         $session->flash('notice', 'Получено сообщение: ' . $message);
 
         return $this->redirectToRoute('home');

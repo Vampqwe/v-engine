@@ -11,6 +11,7 @@ interface SecurityInterface
     public function needsRehash(string $hash): bool;
     public function randomToken(int $bytes = 32): string;
     public function csrfToken(): string;
+    public function rotateCsrfToken(): string;
     public function verifyCsrfToken(?string $token): bool;
     public function escape(string $value): string;
 }

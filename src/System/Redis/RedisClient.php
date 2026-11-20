@@ -46,11 +46,15 @@ final class RedisClient
             }
 
             if ($password !== '') {
-                $redis->auth($password);
+                if (!$redis->auth($password)) {
+                    throw new RedisException('Redis отклонил аутентификацию');
+                }
             }
 
             if ($database > 0) {
-                $redis->select($database);
+                if (!$redis->select($database)) {
+                    throw new RedisException('Не удалось выбрать Redis database');
+                }
             }
 
             if (!$redis->setOption(Redis::OPT_PREFIX, RedisNamespace::forSite($prefix, $site))) {
@@ -69,6 +73,11 @@ final class RedisClient
 
     public function resetConnection(): void
     {
+        $client = $this->client;
         $this->client = null;
+
+        if ($client !== null) {
+            $client->close();
+        }
     }
 }

@@ -8,5 +8,5 @@ use Throwable;
 
 interface ErrorRendererInterface
 {
-    public function render(Throwable $exception, bool $isDebug): string;
+    public function render(Throwable $exception, bool $isDebug, int $statusCode = 500): string;
 }

@@ -14,6 +14,7 @@ final class Request implements RequestInterface
     private array $queryParams;
     private array $bodyParams;
     private array $headers;
+    private array $serverParams;
     private array $attributes = [];
 
     public function __construct(
@@ -25,6 +26,7 @@ final class Request implements RequestInterface
         ?string $rawBody = null,
     ) {
         $serverParams ??= $_SERVER;
+        $this->serverParams = $serverParams;
         $queryParams ??= $_GET;
         $postParams ??= $_POST;
 
@@ -86,7 +88,7 @@ final class Request implements RequestInterface
 
     public function ip(): string
     {
-        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        $remoteAddr = $this->serverParams['REMOTE_ADDR'] ?? '127.0.0.1';
         if (filter_var($remoteAddr, FILTER_VALIDATE_IP) === false) {
             return '127.0.0.1';
         }
@@ -120,10 +122,7 @@ final class Request implements RequestInterface
         $trustedProxies = (array) $this->config->get('app', 'trusted_proxies', []);
 
         foreach ($trustedProxies as $proxy) {
-            if ($proxy === '*') {
-                return true;
-            }
-            if ($proxy === $ip) {
+            if ($this->ipsMatch($proxy, $ip)) {
                 return true;
             }
             if (str_contains($proxy, '/') && $this->ipInCidr($ip, $proxy)) {
@@ -132,6 +131,14 @@ final class Request implements RequestInterface
         }
 
         return false;
+    }
+
+    private function ipsMatch(string $left, string $right): bool
+    {
+        $leftBinary = inet_pton($left);
+        $rightBinary = inet_pton($right);
+
+        return $leftBinary !== false && $leftBinary === $rightBinary;
     }
 
     private function ipInCidr(string $ip, string $cidr): bool
@@ -189,13 +196,46 @@ final class Request implements RequestInterface
 
     private function extractBody(array $postParams, ?string $rawBody): array
     {
+        $maxBodyBytes = $this->config->get('http', 'max_body_bytes', 1_048_576);
+        if (!is_int($maxBodyBytes) || $maxBodyBytes < 1) {
+            throw new \LogicException('Некорректная конфигурация http.max_body_bytes');
+        }
+
+        $contentLength = $this->header('content-length');
+        if ($contentLength !== null) {
+            if (!is_string($contentLength) && !is_int($contentLength)) {
+                throw new HttpException('Некорректный Content-Length', 400);
+            }
+            if (!ctype_digit((string) $contentLength)) {
+                throw new HttpException('Некорректный Content-Length', 400);
+            }
+            if ((int) $contentLength > $maxBodyBytes) {
+                throw new HttpException('Тело запроса слишком большое', 413);
+            }
+        }
+
         if ($postParams !== []) {
             return $postParams;
         }
 
-        $rawBody ??= file_get_contents('php://input');
+        if (in_array($this->method, ['GET', 'HEAD'], true)) {
+            return [];
+        }
+
+        if ($rawBody === null) {
+            $stream = fopen('php://input', 'rb');
+            if ($stream === false) {
+                throw new HttpException('Не удалось прочитать тело запроса', 500);
+            }
+            $rawBody = stream_get_contents($stream, $maxBodyBytes + 1);
+            fclose($stream);
+        }
+
         if ($rawBody === false || $rawBody === '') {
             return [];
+        }
+        if (strlen($rawBody) > $maxBodyBytes) {
+            throw new HttpException('Тело запроса слишком большое', 413);
         }
 
         $contentType = strtolower(trim(explode(';', (string) $this->header('content-type', ''), 2)[0]));

@@ -36,10 +36,6 @@ final class FailoverRateLimiter implements RateLimiterInterface
             return $this->fallback->hit($bucket, $identifier, $decaySeconds);
         }
 
-        if ($this->fallback->isFailoverActive($bucket, $identifier)) {
-            return $this->fallback->hit($bucket, $identifier, $decaySeconds);
-        }
-
         return $result;
     }
 

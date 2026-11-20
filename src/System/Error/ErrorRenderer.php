@@ -8,10 +8,10 @@ use Throwable;
 
 final class ErrorRenderer implements ErrorRendererInterface
 {
-    public function render(Throwable $exception, bool $isDebug): string
+    public function render(Throwable $exception, bool $isDebug, int $statusCode = 500): string
     {
         if (!$isDebug) {
-            return $this->renderProduction();
+            return $this->renderProduction($statusCode);
         }
 
         $codeSnippet = $this->getCodeSnippet($exception->getFile(), $exception->getLine());
@@ -19,6 +19,7 @@ final class ErrorRenderer implements ErrorRendererInterface
         $previous = $exception->getPrevious();
 
         ob_start();
+        $status = $statusCode;
         require __DIR__ . '/views/500.php';
         return (string) ob_get_clean();
     }
@@ -50,16 +51,28 @@ final class ErrorRenderer implements ErrorRendererInterface
         return $result;
     }
 
-    private function renderProduction(): string
+    private function renderProduction(int $statusCode): string
     {
+        $statusText = match ($statusCode) {
+            400 => 'Некорректный запрос.',
+            401 => 'Требуется авторизация.',
+            403 => 'Доступ запрещён.',
+            404 => 'Страница не найдена.',
+            405 => 'Метод запроса не поддерживается.',
+            413 => 'Тело запроса слишком большое.',
+            429 => 'Слишком много запросов.',
+            503 => 'Сервис временно недоступен.',
+            default => 'Внутренняя ошибка сервера. Информация записана в журнал.',
+        };
+
         return <<<HTML
             <!DOCTYPE html>
             <html lang="ru">
-            <head><meta charset="UTF-8"><title>500 Internal Server Error</title></head>
+            <head><meta charset="UTF-8"><title>{$statusCode}</title></head>
             <body style="background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
                 <div style="text-align:center;">
-                    <h1 style="color:#f85149;font-size:48px;margin:0;">500</h1>
-                    <p>Внутренняя ошибка сервера. Информация записана в журнал.</p>
+                    <h1 style="color:#f85149;font-size:48px;margin:0;">{$statusCode}</h1>
+                    <p>{$statusText}</p>
                 </div>
             </body>
             </html>

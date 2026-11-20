@@ -3,13 +3,14 @@
 /** @var array $codeSnippet */
 /** @var array $trace */
 /** @var ?Throwable $previous */
+/** @var int $status */
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>500 | <?= htmlspecialchars($exception::class) ?></title>
+    <title><?= $status ?> | <?= htmlspecialchars($exception::class) ?></title>
     <style>
         :root {
             --bg-canvas: #0d1117;
@@ -135,7 +136,7 @@
 <body>
 <div class="container">
     <div class="header-card">
-        <span class="badge-500">HTTP 500 • UNHANDLED EXCEPTION</span>
+        <span class="badge-500">HTTP <?= $status ?> • UNHANDLED EXCEPTION</span>
         <div class="exception-class"><?= htmlspecialchars($exception::class) ?> (Code: <?= (int) $exception->getCode() ?>)</div>
         <div class="exception-message"><?= htmlspecialchars($exception->getMessage()) ?></div>
         <div class="file-location">

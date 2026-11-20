@@ -54,6 +54,7 @@ final class FileRateLimiter implements RateLimiterInterface
             $identifier,
             fn(array &$state): bool => $state['fallback_until'] > $this->timeDate->timestamp(),
             false,
+            false,
         );
     }
 
@@ -71,25 +72,46 @@ final class FileRateLimiter implements RateLimiterInterface
         });
     }
 
-    private function withState(string $bucket, string $identifier, callable $callback, bool $persist = true): mixed
-    {
-        $path = $this->storageDir . '/' . hash('sha256', $bucket . "\0" . $identifier) . '.json';
+    private function withState(
+        string $bucket,
+        string $identifier,
+        callable $callback,
+        bool $persist = true,
+        bool $create = true,
+    ): mixed {
+        $this->ensureDirectory($this->storageDir);
+        $this->collectGarbageOccasionally();
+
+        $gcLock = fopen($this->storageDir . '/.gc.lock', 'c');
+        if ($gcLock === false || !flock($gcLock, LOCK_SH)) {
+            if (is_resource($gcLock)) {
+                fclose($gcLock);
+            }
+            throw new RateLimiterException('Не удалось заблокировать каталог файлового rate limiter');
+        }
+
         $handle = null;
         $locked = false;
 
         try {
-            if (!is_dir($this->storageDir)
-                && !@mkdir($this->storageDir, 0o700, true)
-                && !is_dir($this->storageDir)
-            ) {
-                throw new RateLimiterException('Не удалось создать каталог файлового rate limiter');
+            $hash = hash('sha256', $bucket . "\0" . $identifier);
+            $directory = $this->storageDir . '/' . substr($hash, 0, 2);
+            $this->ensureDirectory($directory);
+            $path = $directory . '/' . $hash . '.json';
+
+            if (!$create && !is_file($path)) {
+                $state = $this->emptyState();
+                return $callback($state);
             }
 
+            $isNew = !is_file($path);
             $handle = fopen($path, 'c+');
             if ($handle === false) {
                 throw new RateLimiterException('Не удалось открыть состояние файлового rate limiter');
             }
-            chmod($path, 0o600);
+            if ($isNew && !chmod($path, 0o600)) {
+                throw new RateLimiterException('Не удалось защитить состояние файлового rate limiter');
+            }
 
             if (!flock($handle, LOCK_EX)) {
                 throw new RateLimiterException('Не удалось заблокировать состояние файлового rate limiter');
@@ -120,7 +142,83 @@ final class FileRateLimiter implements RateLimiterInterface
                 }
                 fclose($handle);
             }
+            flock($gcLock, LOCK_UN);
+            fclose($gcLock);
         }
+    }
+
+    private function collectGarbageOccasionally(): void
+    {
+        if (mt_rand(1, 1000) !== 1) {
+            return;
+        }
+
+        $this->collectExpiredStates();
+    }
+
+    private function collectExpiredStates(): int
+    {
+        $lock = fopen($this->storageDir . '/.gc.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) {
+                fclose($lock);
+            }
+            throw new RateLimiterException('Не удалось заблокировать каталог для очистки rate limiter');
+        }
+
+        try {
+            $cutoff = $this->timeDate->timestamp() - 86400;
+            $removed = 0;
+            foreach (glob($this->storageDir . '/*/*.json') ?: [] as $path) {
+                $contents = @file_get_contents($path);
+                if ($contents === false) {
+                    continue;
+                }
+
+                try {
+                    $state = $this->decodeState($contents);
+                } catch (RateLimiterException) {
+                    continue;
+                }
+
+                $isExpired = $state['fallback_until'] <= $this->timeDate->timestamp()
+                    && $state['window_started_at'] < $cutoff;
+                if ($isExpired) {
+                    if (!unlink($path)) {
+                        throw new RateLimiterException('Не удалось удалить просроченное состояние rate limiter');
+                    }
+                    $removed++;
+                }
+            }
+
+            return $removed;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    private function ensureDirectory(string $path): void
+    {
+        if (is_dir($path)) {
+            return;
+        }
+
+        if (!mkdir($path, 0o700, true) && !is_dir($path)) {
+            throw new RateLimiterException('Не удалось создать каталог файлового rate limiter');
+        }
+    }
+
+    /**
+     * @return array{attempts: int, window_started_at: int, fallback_until: int}
+     */
+    private function emptyState(): array
+    {
+        return [
+            'attempts'          => 0,
+            'window_started_at' => 0,
+            'fallback_until'    => 0,
+        ];
     }
 
     private function decodeState(string $contents): array

@@ -30,7 +30,10 @@ final class AdminAuthMiddleware extends AbstractMiddleware
         $adminId = $this->session->get('admin_user_id');
         $this->session->close();
 
-        if (!is_int($adminId) && !ctype_digit((string) $adminId)) {
+        if (
+            !(is_int($adminId) && $adminId > 0)
+            && !(is_string($adminId) && ctype_digit($adminId) && (int) $adminId > 0)
+        ) {
             return $this->denyAccess($request);
         }
 

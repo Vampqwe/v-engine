@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VEngine\System\Cache;
 
 use Throwable;
+use VEngine\System\File\FileException;
 use VEngine\System\File\FileInterface;
 use VEngine\System\TimeDate\TimeDateInterface;
 
@@ -25,7 +26,16 @@ final class FileCache extends AbstractCache
             return $default;
         }
 
-        $payload = @unserialize($this->file->read($path), ['allowed_classes' => false]);
+        try {
+            $raw = $this->file->read($path);
+        } catch (FileException $e) {
+            if (!$this->file->exists($path)) {
+                return $default;
+            }
+            throw $e;
+        }
+
+        $payload = @unserialize($raw, ['allowed_classes' => false]);
         if (
             !is_array($payload)
             || !array_key_exists('data', $payload)
@@ -40,6 +50,10 @@ final class FileCache extends AbstractCache
 
     public function set(string $key, mixed $value, int $ttl = 3600): bool
     {
+        if ($ttl <= 0) {
+            return $this->delete($key);
+        }
+
         $payload = serialize($this->preparePayload($value, $ttl));
         $path = $this->getPath($key);
         $directory = dirname($path);
@@ -48,6 +62,12 @@ final class FileCache extends AbstractCache
         $temporaryPath = tempnam($directory, basename($path) . '.');
         if ($temporaryPath === false) {
             throw new CacheException('Не удалось создать временный файл кэша');
+        }
+        if (dirname($temporaryPath) !== $directory) {
+            if (!unlink($temporaryPath)) {
+                throw new CacheException('Не удалось удалить временный файл кэша вне целевого каталога');
+            }
+            throw new CacheException('Каталог кэша недоступен для атомарной записи');
         }
 
         try {

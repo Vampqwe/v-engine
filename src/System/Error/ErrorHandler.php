@@ -86,16 +86,48 @@ final class ErrorHandler implements ErrorHandlerInterface
         if (!headers_sent()) {
             http_response_code($statusCode);
             header('Content-Type: text/html; charset=UTF-8');
+            $this->sendSecurityHeaders();
         }
 
-        $isDebug = ($this->config->env('APP_ENV', 'prod') === 'dev');
-        echo $this->renderer->render($e, $isDebug);
+        if ($this->isJsonRequest()) {
+            $isDebug = (bool) $this->config->get('app', 'debug', false);
+            Response::json([
+                'error'   => true,
+                'status'  => $statusCode,
+                'message' => $isDebug
+                    ? $e->getMessage()
+                    : ($statusCode === 404 ? 'Not Found' : 'Internal Server Error'),
+            ], $statusCode)->send();
+            return;
+        }
+
+        $isDebug = (bool) $this->config->get('app', 'debug', false);
+        echo $this->renderer->render($e, $isDebug, $statusCode);
+    }
+
+    private function isJsonRequest(): bool
+    {
+        $accept = strtolower((string) $this->request->header('accept', ''));
+        return $this->request->isAjax()
+            || str_contains($accept, 'application/json')
+            || str_starts_with($this->request->uri(), '/api/');
+    }
+
+    private function sendSecurityHeaders(): void
+    {
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
     }
 
     private function handleValidationException(ValidationException $e): void
     {
         while (ob_get_level() > 0) {
             ob_end_clean();
+        }
+        if (!headers_sent()) {
+            $this->sendSecurityHeaders();
         }
 
         $accept = (string) $this->request->header('accept', '');

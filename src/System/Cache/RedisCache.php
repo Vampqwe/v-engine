@@ -28,8 +28,12 @@ final class RedisCache extends AbstractCache
                 return $default;
             }
 
-            $payload = unserialize($raw, ['allowed_classes' => false]);
-            if (!is_array($payload) || $this->isExpired($payload)) {
+            $payload = @unserialize($raw, ['allowed_classes' => false]);
+            if (
+                !is_array($payload)
+                || !array_key_exists('data', $payload)
+                || $this->isExpired($payload)
+            ) {
                 $this->delete($key);
                 return $default;
             }

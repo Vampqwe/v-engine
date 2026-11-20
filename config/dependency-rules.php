@@ -66,7 +66,7 @@ return [
             $c->get(TimeDateInterface::class),
         );
 
-        return match ($config->get('rate-limit', 'driver', 'redis')) {
+        return match ($config->get('rate-limit', 'driver', 'file')) {
             'file' => $fileRateLimiter,
             'redis' => new FailoverRateLimiter(
                 new RedisRateLimiter(
@@ -147,7 +147,7 @@ return [
 
         /** @var ConfigInterface $config */
         $config = $c->get(ConfigInterface::class);
-        $isProd = ($config->env('APP_ENV', 'dev') === 'prod');
+        $isProd = ($config->env('APP_ENV', 'prod') === 'prod');
         $cacheFile = $c->get('path.cache') . '/routes.compiled.php';
 
         if ($isProd && is_file($cacheFile)) {

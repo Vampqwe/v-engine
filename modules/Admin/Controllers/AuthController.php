@@ -12,6 +12,7 @@ use VEngine\System\Logger\LoggerInterface;
 use VEngine\System\RateLimit\RateLimiterException;
 use VEngine\System\RateLimit\RateLimiterInterface;
 use VEngine\System\Router\RouterInterface;
+use VEngine\System\Security\SecurityInterface;
 use VEngine\System\Session\SessionInterface;
 use VEngine\System\Validator\ValidatorInterface;
 use VEngine\System\View\ViewInterface;
@@ -26,6 +27,7 @@ final class AuthController extends AbstractController
         private readonly SessionInterface $session,
         private readonly ValidatorInterface $validator,
         private readonly AdminUserService $adminUsers,
+        private readonly SecurityInterface $security,
         private readonly RateLimiterInterface $rateLimiter,
         LoggerInterface $logger,
     ) {
@@ -76,7 +78,6 @@ final class AuthController extends AbstractController
 
         if ($admin === null) {
             $this->logger->error('Неудачная попытка входа в админ-панель', [
-                'email' => $data['email'],
                 'ip'    => $request->ip(),
             ]);
             $this->session->flash('error', 'Неверный email или пароль.');
@@ -96,12 +97,12 @@ final class AuthController extends AbstractController
 
         // Защита от фиксации сессии (Session Fixation)
         $this->session->regenerate(true);
+        $this->security->rotateCsrfToken();
         $this->session->set('admin_user_id', (int) $admin['id']);
         $this->session->flash('success', 'Добро пожаловать в панель управления!');
 
         $this->logger->info('Успешный вход администратора', [
             'admin_id' => $admin['id'],
-            'email'    => $admin['email'],
         ]);
 
         return $this->redirectToRoute('admin.dashboard');
@@ -111,6 +112,7 @@ final class AuthController extends AbstractController
     {
         $this->session->remove('admin_user_id');
         $this->session->regenerate(true);
+        $this->security->rotateCsrfToken();
         $this->session->flash('success', 'Вы успешно вышли из системы.');
 
         return $this->redirectToRoute('admin.login');

@@ -11,13 +11,13 @@ use VEngine\System\RateLimit\RateLimiterInterface;
 
 final class RateLimitConfigTest extends TestCase
 {
-    public function testRateLimiterDriverDefaultsToRedis(): void
+    public function testRateLimiterDriverDefaultsToFile(): void
     {
         $environment = $this->replaceDriver(null);
 
         try {
             $config = require dirname(__DIR__, 2) . '/config/rate-limit.php';
-            self::assertSame('redis', $config['driver']);
+            self::assertSame('file', $config['driver']);
         } finally {
             $this->restoreDriver($environment);
         }

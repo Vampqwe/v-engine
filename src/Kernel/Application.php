@@ -58,7 +58,10 @@ final class Application
             'path.views'    => $siteRoot . '/views',
         ];
 
-        $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'dev';
+        $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'prod';
+        if (!in_array($env, ['dev', 'prod'], true)) {
+            throw new \InvalidArgumentException('APP_ENV должен быть dev или prod');
+        }
         $this->isProd = ($env === 'prod');
 
         $this->buildContainer();
@@ -101,7 +104,17 @@ final class Application
         $metrics->startRequest($this->requestStartedAt);
         $router = $this->container->get(RouterInterface::class);
         $response = $router->dispatch($request);
-        $response->withHeader('Server-Timing', $metrics->serverTiming())->send();
+        $response = $response
+            ->withHeader('X-Content-Type-Options', 'nosniff')
+            ->withHeader('X-Frame-Options', 'DENY')
+            ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+            ->withHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+        if (!$this->isProd) {
+            $response = $response->withHeader('Server-Timing', $metrics->serverTiming());
+        }
+
+        $response->send();
     }
 
     public function getContainer(): ContainerInterface

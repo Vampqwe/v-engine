@@ -9,6 +9,8 @@ use VEngine\System\Security\SecurityInterface;
 
 final class AdminUserService
 {
+    private const DUMMY_PASSWORD_HASH = '$2y$12$wa4qrYZSEpreapTowSpGOuTbMMEZKrHld1.DbzcZ96k/zeLaAEQm2';
+
     public function __construct(
         private readonly DataBaseInterface $db,
         private readonly SecurityInterface $security,
@@ -51,6 +53,7 @@ final class AdminUserService
     {
         $user = $this->findByEmail($email);
         if ($user === null) {
+            $this->security->verifyPassword($password, self::DUMMY_PASSWORD_HASH);
             return null;
         }
 

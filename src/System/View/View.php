@@ -45,7 +45,8 @@ final class View implements ViewInterface
             $this->cachedErrors = is_array($flashed) ? $flashed : [];
         }
 
-        return $this->cachedErrors[$field][0] ?? null;
+        $error = $this->cachedErrors[$field][0] ?? null;
+        return is_string($error) ? $this->escape($error) : null;
     }
 
     public function share(string $key, mixed $value): void

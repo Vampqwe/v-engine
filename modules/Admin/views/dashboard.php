@@ -99,10 +99,11 @@ $statusClass = static fn(string $status): string => match ($status) {
             <?php
             $databaseStatus = (string) $database['status'];
 $redisStatus = (string) $cache['redis_status'];
+$redisUsage = $cache['redis_usage'] === [] ? '' : 'Используют: ' . implode(', ', $cache['redis_usage']);
 $fileStatus = $cache['file_status'] ? 'writable' : 'readonly';
 $healthItems = [
     ['name' => 'База данных MySQL', 'detail' => $database['version'] ?? 'Нет соединения', 'status' => $databaseStatus],
-    ['name' => 'Redis', 'detail' => $redisStatus === 'not_used' ? 'Не выбран текущими драйверами' : ($redisStatus === 'connected' ? 'Соединение установлено' : 'Соединение недоступно'), 'status' => $redisStatus],
+    ['name' => 'Redis', 'detail' => $redisStatus === 'not_used' ? 'Не выбран текущими драйверами' : ($redisStatus === 'connected' ? 'Соединение установлено. ' . $redisUsage : 'Соединение недоступно. ' . $redisUsage), 'status' => $redisStatus],
     ['name' => 'Файловый кэш сайта', 'detail' => $cache['driver'] === 'file' ? 'Основной драйвер' : ($cache['failover'] ? 'Резервное хранилище' : 'Не используется'), 'status' => $cache['driver'] === 'file' || $cache['failover'] ? $fileStatus : 'not_used'],
     ['name' => 'Сессии', 'detail' => 'Драйвер: ' . $session['driver'], 'status' => (string) $session['status']],
 ];

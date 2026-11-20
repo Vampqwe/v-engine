@@ -46,9 +46,61 @@ final class RequestTest extends TestCase
         }
     }
 
-    private function makeRequest(array $server, string $rawBody): Request
+    public function testUsesInjectedRemoteAddressAndTrustedForwardedAddress(): void
     {
-        $config = new class implements ConfigInterface {
+        $request = $this->makeRequest(
+            [
+                'REQUEST_METHOD'       => 'GET',
+                'REMOTE_ADDR'          => '10.0.0.2',
+                'HTTP_X_FORWARDED_FOR' => '203.0.113.8',
+            ],
+            '',
+            ['app' => ['trusted_proxies' => ['10.0.0.0/8']]],
+            ['http' => ['max_body_bytes' => 5]],
+        );
+
+        self::assertSame('203.0.113.8', $request->ip());
+    }
+
+    public function testMatchesEquivalentIpv6TrustedProxyAddresses(): void
+    {
+        $request = $this->makeRequest(
+            [
+                'REQUEST_METHOD'       => 'GET',
+                'REMOTE_ADDR'          => '0:0:0:0:0:0:0:1',
+                'HTTP_X_FORWARDED_FOR' => '203.0.113.8',
+            ],
+            '',
+            ['app' => ['trusted_proxies' => ['::1']]],
+        );
+
+        self::assertSame('203.0.113.8', $request->ip());
+    }
+
+    public function testRejectsRequestBodyLargerThanConfiguredLimit(): void
+    {
+        try {
+            $this->makeRequest(
+                ['REQUEST_METHOD' => 'PUT', 'CONTENT_LENGTH' => '6'],
+                '123456',
+                [],
+                ['http' => ['max_body_bytes' => 5]],
+            );
+            self::fail('Oversized request body should be rejected.');
+        } catch (HttpException $exception) {
+            self::assertSame(413, $exception->getStatusCode());
+        }
+    }
+
+    private function makeRequest(
+        array $server,
+        string $rawBody,
+        array $configValues = [],
+        array $additionalConfigValues = [],
+    ): Request {
+        $config = new class (array_merge($configValues, $additionalConfigValues)) implements ConfigInterface {
+            public function __construct(private readonly array $values) {}
+
             public function env(string $key, mixed $default = null): mixed
             {
                 return $default;
@@ -56,7 +108,7 @@ final class RequestTest extends TestCase
 
             public function get(string $file, string $key, mixed $default = null): mixed
             {
-                return $default;
+                return $this->values[$file][$key] ?? $default;
             }
         };
 

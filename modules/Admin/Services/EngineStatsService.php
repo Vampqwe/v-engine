@@ -29,13 +29,19 @@ final class EngineStatsService
     {
         $cacheDriver = (string) $this->config->get('cache', 'driver', 'file');
         $sessionDriver = (string) $this->config->get('session', 'driver', 'file');
-        $redisStatus = $this->redisStatus($cacheDriver, $sessionDriver);
+        $rateLimitDriver = (string) $this->config->get('rate-limit', 'driver', 'file');
+        $redisDrivers = array_values(array_filter([
+            $cacheDriver === 'redis' ? 'cache' : null,
+            $sessionDriver === 'redis' ? 'sessions' : null,
+            $rateLimitDriver === 'redis' ? 'rate limiter' : null,
+        ]));
+        $redisStatus = $this->redisStatus($redisDrivers);
         $modules = $this->moduleNames();
 
         return [
             'application' => [
                 'name'        => (string) $this->config->get('app', 'name', 'V-engine'),
-                'environment' => (string) $this->config->env('APP_ENV', 'dev'),
+                'environment' => (string) $this->config->env('APP_ENV', 'prod'),
                 'site'        => basename($this->siteRoot),
                 'site_count'  => $this->directoryCount($this->sitesRoot),
             ],
@@ -63,6 +69,7 @@ final class EngineStatsService
             'cache' => [
                 'driver'       => $cacheDriver,
                 'redis_status' => $redisStatus,
+                'redis_usage'  => $redisDrivers,
                 'file_status'  => $this->isWritableDirectory($this->storageRoot . '/cache/sites/' . basename($this->siteRoot)),
                 'failover'     => (bool) $this->config->get('cache', 'redis_failover', false),
             ],
@@ -98,9 +105,12 @@ final class EngineStatsService
         ];
     }
 
-    private function redisStatus(string $cacheDriver, string $sessionDriver): string
+    /**
+     * @param list<string> $redisDrivers
+     */
+    private function redisStatus(array $redisDrivers): string
     {
-        if ($cacheDriver !== 'redis' && $sessionDriver !== 'redis') {
+        if ($redisDrivers === []) {
             return 'not_used';
         }
 

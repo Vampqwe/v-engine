@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace VEngine\System\Session;
 
+use Throwable;
 use VEngine\System\Config\ConfigInterface;
+use VEngine\System\Http\HttpException;
 use VEngine\System\Map\MapInterface;
 use VEngine\System\Redis\RedisNamespace;
 
@@ -37,9 +39,15 @@ final class Session implements SessionInterface
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.gc_maxlifetime', (string) $lifetime);
+        ini_set('session.gc_probability', '1');
+        ini_set('session.gc_divisor', '1000');
 
         if ($driver === 'redis') {
-            $this->configureRedisHandler();
+            try {
+                $this->configureRedisHandler();
+            } catch (Throwable $e) {
+                throw new HttpException('Хранилище сессий временно недоступно', 503, $e);
+            }
         }
 
         $name = (string) $this->config->get('session', 'name', 'VENGINE_SESSID');
@@ -54,8 +62,15 @@ final class Session implements SessionInterface
             'samesite' => (string) $this->config->get('session', 'samesite', 'Lax'),
         ]);
 
-        if (!session_start()) {
-            throw new SessionException('Не удалось инициализировать PHP-сессию');
+        try {
+            if (!session_start()) {
+                throw new SessionException('Не удалось инициализировать PHP-сессию');
+            }
+        } catch (Throwable $e) {
+            if ($driver === 'redis') {
+                throw new HttpException('Хранилище сессий временно недоступно', 503, $e);
+            }
+            throw $e;
         }
     }
 
