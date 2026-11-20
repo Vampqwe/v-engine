@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace VEngine\System\Http;
 
+use VEngine\System\Config\ConfigInterface;
 use VEngine\System\Map\MapInterface;
 
 final class Request implements RequestInterface
@@ -16,7 +17,8 @@ final class Request implements RequestInterface
     private array $attributes = [];
 
     public function __construct(
-        private readonly MapInterface $map
+        private readonly MapInterface $map,
+        private readonly ConfigInterface $config
     ) {
         $this->method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $rawUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -74,6 +76,90 @@ final class Request implements RequestInterface
         return $this->attributes[$name] ?? $default;
     }
 
+    public function ip(): string
+    {
+        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        if (filter_var($remoteAddr, FILTER_VALIDATE_IP) === false) {
+            return '127.0.0.1';
+        }
+
+        // Читаем заголовки прокси только если запрос пришел от доверенного узла
+        if ($this->isFromTrustedProxy($remoteAddr)) {
+            $forwardedFor = $this->header('x-forwarded-for');
+            if (is_string($forwardedFor) && $forwardedFor !== '') {
+                $ips = array_map('trim', explode(',', $forwardedFor));
+                // Идем справа налево: берем первый IP, который не является доверенным прокси
+                for ($i = count($ips) - 1; $i >= 0; $i--) {
+                    $candidate = $ips[$i];
+                    if (filter_var($candidate, FILTER_VALIDATE_IP) !== false && !$this->isFromTrustedProxy($candidate)) {
+                        return $candidate;
+                    }
+                }
+            }
+
+            $realIp = $this->header('x-real-ip');
+            if (is_string($realIp) && filter_var($realIp, FILTER_VALIDATE_IP) !== false) {
+                return $realIp;
+            }
+        }
+
+        return $remoteAddr;
+    }
+
+    private function isFromTrustedProxy(string $ip): bool
+    {
+        /** @var array<int, string> $trustedProxies */
+        $trustedProxies = (array) $this->config->get('app', 'trusted_proxies', []);
+
+        foreach ($trustedProxies as $proxy) {
+            if ($proxy === '*') {
+                return true;
+            }
+            if ($proxy === $ip) {
+                return true;
+            }
+            if (str_contains($proxy, '/') && $this->ipInCidr($ip, $proxy)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function ipInCidr(string $ip, string $cidr): bool
+    {
+        [$subnet, $bitsStr] = explode('/', $cidr, 2);
+        $bits = (int) $bitsStr;
+
+        $ipBin = inet_pton($ip);
+        $subnetBin = inet_pton($subnet);
+
+        if ($ipBin === false || $subnetBin === false || strlen($ipBin) !== strlen($subnetBin)) {
+            return false;
+        }
+
+        $maxBits = strlen($ipBin) * 8;
+        if ($bits < 0 || $bits > $maxBits) {
+            return false;
+        }
+
+        $fullBytes = intdiv($bits, 8);
+        $remainingBits = $bits % 8;
+
+        if ($fullBytes > 0 && substr($ipBin, 0, $fullBytes) !== substr($subnetBin, 0, $fullBytes)) {
+            return false;
+        }
+
+        if ($remainingBits > 0) {
+            $mask = chr((0xFF << (8 - $remainingBits)) & 0xFF);
+            if ((ord($ipBin[$fullBytes]) & ord($mask)) !== (ord($subnetBin[$fullBytes]) & ord($mask))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function extractHeaders(array $server): array
     {
         $headers = [];
@@ -105,25 +191,4 @@ final class Request implements RequestInterface
 
         return [];
     }
-	
-	public function ip(): string
-	{
-		$forwardedFor = $this->header('x-forwarded-for');
-		if (is_string($forwardedFor) && $forwardedFor !== '') {
-			$ips = array_map('trim', explode(',', $forwardedFor));
-			foreach ($ips as $ip) {
-				if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
-					return $ip;
-				}
-			}
-		}
-
-		$realIp = $this->header('x-real-ip');
-		if (is_string($realIp) && filter_var($realIp, FILTER_VALIDATE_IP) !== false) {
-			return $realIp;
-		}
-
-		$remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-		return filter_var($remoteAddr, FILTER_VALIDATE_IP) !== false ? $remoteAddr : '127.0.0.1';
-	}
 }

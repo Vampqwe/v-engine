@@ -14,5 +14,7 @@ interface ViewInterface
     public function csrfField(): string;
     public function route(string $name, array $params = []): string;
     public function flash(string $key, mixed $default = null): mixed;
+    public function old(string $field, mixed $default = ''): string;
+    public function error(string $field): ?string;
     public function partial(string $template, array $data = []): string;
 }

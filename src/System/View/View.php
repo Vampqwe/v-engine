@@ -13,6 +13,11 @@ final class View implements ViewInterface
 {
     /** @var array<string, mixed> */
     private array $sharedData = [];
+	    /** @var array<string, mixed>|null */
+    private ?array $cachedOldInput = null;
+
+    /** @var array<string, string[]>|null */
+    private ?array $cachedErrors = null;
 
     public function __construct(
         private readonly string $viewsDir,
@@ -20,7 +25,28 @@ final class View implements ViewInterface
         private readonly RouterInterface $router,
         private readonly SessionInterface $session
     ) {}
+	
+	public function old(string $field, mixed $default = ''): string
+    {
+        if ($this->cachedOldInput === null) {
+            $flashed = $this->session->getFlash('_old_input', []);
+            $this->cachedOldInput = is_array($flashed) ? $flashed : [];
+        }
 
+        $value = $this->cachedOldInput[$field] ?? $default;
+        return $this->escape(is_scalar($value) ? (string) $value : '');
+    }
+
+    public function error(string $field): ?string
+    {
+        if ($this->cachedErrors === null) {
+            $flashed = $this->session->getFlash('_errors', []);
+            $this->cachedErrors = is_array($flashed) ? $flashed : [];
+        }
+
+        return $this->cachedErrors[$field][0] ?? null;
+    }
+	
     public function share(string $key, mixed $value): void
     {
         $this->sharedData[$key] = $value;
