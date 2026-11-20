@@ -18,7 +18,8 @@
 ## Требования
 
 * **PHP** `>= 8.2`
-* **Расширения PHP:** `ext-pdo`, `ext-pdo_mysql`, `ext-json`, `ext-mbstring`
+* **Обязательные расширения PHP:** `ext-pdo`, `ext-pdo_mysql`, `ext-json`, `ext-mbstring`
+* **Опционально:** `ext-redis`, если `CACHE_DRIVER` или `SESSION_DRIVER` установлены в `redis`
 * **Composer** `2.x`
 * **Веб-сервер:** Apache (с `mod_rewrite`), Nginx или встроенный сервер PHP для разработки
 
@@ -54,6 +55,8 @@
    ```
 
 Для создания администратора запустите `php bin/create-admin.php [email] [name]`. Пароль вводится отдельно в скрытом интерактивном запросе и не передается аргументом процесса.
+
+Настройки подключения находятся в `config/database.php` и `config/redis.php`; выбор кэш-драйвера, параметры сессии и лимиты запросов — в `config/cache.php`, `config/session.php` и `config/rate-limit.php`. Секреты подключения задавайте только в `.env`.
 
 ---
 

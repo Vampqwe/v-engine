@@ -7,9 +7,11 @@ namespace Tests\Unit;
 use App\Middleware\RateLimitMiddleware;
 use Modules\Admin\Middleware\LoginRateLimitMiddleware;
 use PHPUnit\Framework\TestCase;
+use VEngine\System\Config\Config;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\Response;
 use VEngine\System\Logger\LoggerInterface;
+use VEngine\System\Map\Map;
 use VEngine\System\RateLimit\RateLimiterException;
 use VEngine\System\RateLimit\RateLimiterInterface;
 use VEngine\System\Router\RouterInterface;
@@ -64,10 +66,16 @@ final class RateLimitMiddlewareTest extends TestCase
 
         return new $middlewareClass(
             $rateLimiter,
+            $this->makeConfig(),
             $this->createMock(SessionInterface::class),
             $this->createMock(RouterInterface::class),
             $logger,
         );
+    }
+
+    private function makeConfig(): Config
+    {
+        return new Config(dirname(__DIR__, 2), new Map());
     }
 
     private function makeRequest(): RequestInterface

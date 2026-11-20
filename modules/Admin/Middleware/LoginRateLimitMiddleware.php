@@ -11,23 +11,8 @@ final class LoginRateLimitMiddleware extends RateLimitMiddleware
 {
     public const BUCKET = 'admin_login';
 
-    protected function maxAttempts(): int
-    {
-        return 5;
-    }
-
-    protected function decaySeconds(): int
-    {
-        return 300;
-    }
-
     protected function bucket(RequestInterface $request): string
     {
         return self::BUCKET;
-    }
-
-    protected function failOpen(): bool
-    {
-        return false;
     }
 }

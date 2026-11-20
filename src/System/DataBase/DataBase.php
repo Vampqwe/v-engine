@@ -23,11 +23,11 @@ final class DataBase implements DataBaseInterface
     public function connection(): PDO
     {
         if ($this->pdo === null) {
-            $host = $this->config->env('DB_HOST', '127.0.0.1');
-            $port = $this->config->env('DB_PORT', '3306');
-            $name = $this->config->env('DB_NAME', 'v_engine');
-            $user = $this->config->env('DB_USER', 'root');
-            $pass = $this->config->env('DB_PASS', '');
+            $host = $this->config->get('database', 'host', '127.0.0.1');
+            $port = $this->config->get('database', 'port', 3306);
+            $name = $this->config->get('database', 'name', 'v_engine');
+            $user = $this->config->get('database', 'user', 'root');
+            $pass = $this->config->get('database', 'password', '');
             $charset = $this->config->get('database', 'charset', 'utf8mb4');
             $dsn = "mysql:host={$host};port={$port};dbname={$name};charset={$charset}";
             try {

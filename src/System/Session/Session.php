@@ -29,6 +29,10 @@ final class Session implements SessionInterface
         $lifetime = (int) $this->config->get('session', 'lifetime', 7200);
         $driver = (string) $this->config->get('session', 'driver', $this->config->env('SESSION_DRIVER', 'file'));
 
+        if (!in_array($driver, ['file', 'redis'], true)) {
+            throw new SessionException("Неподдерживаемый драйвер сессий: {$driver}");
+        }
+
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.gc_maxlifetime', (string) $lifetime);
@@ -60,15 +64,16 @@ final class Session implements SessionInterface
             throw new SessionException('Для работы сессий через Redis требуется PHP-расширение ext-redis');
         }
 
-        $host = (string) $this->config->env('REDIS_HOST', '127.0.0.1');
-        $port = (int) $this->config->env('REDIS_PORT', 6379);
-        $password = (string) $this->config->env('REDIS_PASSWORD', '');
-        $database = (int) $this->config->env('REDIS_DB', 0);
-        $prefix = (string) $this->config->env('REDIS_PREFIX', 'vengine:') . 'sess:';
+        $host = (string) $this->config->get('redis', 'host', '127.0.0.1');
+        $port = (int) $this->config->get('redis', 'port', 6379);
+        $password = (string) $this->config->get('redis', 'password', '');
+        $database = (int) $this->config->get('redis', 'database', 0);
+        $prefix = (string) $this->config->get('redis', 'prefix', 'vengine:') . 'sess:';
 
         $query = [
             'database' => $database,
             'prefix'   => $prefix,
+            'timeout'  => (float) $this->config->get('redis', 'timeout', 2.0),
         ];
 
         if ($password !== '') {

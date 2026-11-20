@@ -50,6 +50,18 @@ final class SessionConfigTest extends TestCase
         }
     }
 
+    public function testRejectsUnsupportedSessionDriver(): void
+    {
+        $environment = $this->replaceEnvironment(['SESSION_DRIVER' => 'memcached']);
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            require dirname(__DIR__, 2) . '/config/session.php';
+        } finally {
+            $this->restoreEnvironment($environment);
+        }
+    }
+
     /**
      * @param array<string, string> $values
      * @return array<string, array{envExists: bool, envValue: mixed, serverExists: bool, serverValue: mixed}>
@@ -57,7 +69,7 @@ final class SessionConfigTest extends TestCase
     private function replaceEnvironment(array $values): array
     {
         $previous = [];
-        foreach (['APP_ENV', 'SESSION_SECURE'] as $key) {
+        foreach (['APP_ENV', 'SESSION_SECURE', 'SESSION_DRIVER', 'CACHE_DRIVER'] as $key) {
             $previous[$key] = [
                 'envExists'    => array_key_exists($key, $_ENV),
                 'envValue'     => $_ENV[$key] ?? null,

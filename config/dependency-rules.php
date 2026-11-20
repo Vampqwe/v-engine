@@ -72,22 +72,21 @@ return [
     },
 
     CacheInterface::class => static function (ContainerInterface $c): CacheInterface {
-        /** @var ConfigInterface $config */
         $config = $c->get(ConfigInterface::class);
-        $driver = (string) $config->env('CACHE_DRIVER', 'file');
+        $driver = $config->get('cache', 'driver', 'file');
 
-        if ($driver === 'redis') {
-            return new RedisCache(
+        return match ($driver) {
+            'redis' => new RedisCache(
                 $c->get(RedisClient::class),
                 $c->get(TimeDateInterface::class),
-            );
-        }
-
-        return new FileCache(
-            $c->get('path.cache'),
-            $c->get(FileInterface::class),
-            $c->get(TimeDateInterface::class),
-        );
+            ),
+            'file' => new FileCache(
+                $c->get('path.cache'),
+                $c->get(FileInterface::class),
+                $c->get(TimeDateInterface::class),
+            ),
+            default => throw new \LogicException("Неподдерживаемый CACHE_DRIVER: {$driver}"),
+        };
     },
 
     RouterInterface::class => static function (ContainerInterface $c): RouterInterface {

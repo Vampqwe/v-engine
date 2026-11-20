@@ -7,6 +7,7 @@ namespace App\Middleware;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\Response;
 use VEngine\System\Http\ResponseInterface;
+use VEngine\System\Config\ConfigInterface;
 use VEngine\System\Logger\LoggerInterface;
 use VEngine\System\Middleware\AbstractMiddleware;
 use VEngine\System\RateLimit\RateLimiterException;
@@ -20,6 +21,7 @@ class RateLimitMiddleware extends AbstractMiddleware
 
     public function __construct(
         private readonly RateLimiterInterface $rateLimiter,
+        private readonly ConfigInterface $config,
         private readonly SessionInterface $session,
         private readonly RouterInterface $router,
         LoggerInterface $logger,
@@ -27,36 +29,22 @@ class RateLimitMiddleware extends AbstractMiddleware
         $this->logger = $logger->forModule('Security');
     }
 
-    protected function maxAttempts(): int
-    {
-        return 60;
-    }
-
-    protected function decaySeconds(): int
-    {
-        return 60;
-    }
-
     protected function bucket(RequestInterface $request): string
     {
         return 'global';
     }
 
-    protected function failOpen(): bool
-    {
-        return true;
-    }
-
     public function process(RequestInterface $request, callable $next): ResponseInterface
     {
-        $maxAttempts = $this->maxAttempts();
-        $decaySeconds = $this->decaySeconds();
+        $policy = $this->policy($request);
+        $maxAttempts = $policy['max_attempts'];
+        $decaySeconds = $policy['decay_seconds'];
 
         try {
             $result = $this->rateLimiter->hit($this->bucket($request), $request->ip(), $decaySeconds);
         } catch (RateLimiterException $e) {
             $this->logger->error('Ошибка хранилища RateLimit: ' . $e->getMessage());
-            if ($this->failOpen()) {
+            if ($policy['fail_open']) {
                 return $next($request);
             }
 
@@ -98,5 +86,25 @@ class RateLimitMiddleware extends AbstractMiddleware
         $fallbackUrl = $request->uri() !== '' ? $request->uri() : $this->router->route('home');
         return $this->redirect($fallbackUrl, 302)
             ->withHeader('Retry-After', (string) $retryAfter);
+    }
+
+    /**
+     * @return array{max_attempts: int, decay_seconds: int, fail_open: bool}
+     */
+    private function policy(RequestInterface $request): array
+    {
+        $policy = $this->config->get('rate-limit', $this->bucket($request));
+        if (
+            !is_array($policy)
+            || !is_int($policy['max_attempts'] ?? null)
+            || $policy['max_attempts'] < 1
+            || !is_int($policy['decay_seconds'] ?? null)
+            || $policy['decay_seconds'] < 1
+            || !is_bool($policy['fail_open'] ?? null)
+        ) {
+            throw new \LogicException('Некорректная конфигурация rate limit: ' . $this->bucket($request));
+        }
+
+        return $policy;
     }
 }

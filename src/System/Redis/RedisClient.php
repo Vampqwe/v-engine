@@ -26,15 +26,16 @@ final class RedisClient
             throw new RedisException('PHP-расширение ext-redis не установлено');
         }
 
-        $host = (string) $this->config->env('REDIS_HOST', '127.0.0.1');
-        $port = (int) $this->config->env('REDIS_PORT', 6379);
-        $password = (string) $this->config->env('REDIS_PASSWORD', '');
-        $database = (int) $this->config->env('REDIS_DB', 0);
-        $prefix = (string) $this->config->env('REDIS_PREFIX', 'vengine:');
+        $host = (string) $this->config->get('redis', 'host', '127.0.0.1');
+        $port = (int) $this->config->get('redis', 'port', 6379);
+        $password = (string) $this->config->get('redis', 'password', '');
+        $database = (int) $this->config->get('redis', 'database', 0);
+        $prefix = (string) $this->config->get('redis', 'prefix', 'vengine:');
+        $timeout = (float) $this->config->get('redis', 'timeout', 2.0);
 
         try {
             $redis = new Redis();
-            if (!$redis->connect($host, $port, 2.0)) {
+            if (!$redis->connect($host, $port, $timeout)) {
                 throw new RedisException("Не удалось подключиться к Redis ({$host}:{$port})");
             }
 
