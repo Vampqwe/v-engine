@@ -61,19 +61,24 @@ return [
     RateLimiterInterface::class => static function (ContainerInterface $c): RateLimiterInterface {
         /** @var ConfigInterface $config */
         $config = $c->get(ConfigInterface::class);
-
-        return new FailoverRateLimiter(
-            new RedisRateLimiter(
-                $c->get(RedisClient::class),
-                $c->get(RequestMetrics::class),
-            ),
-            new FileRateLimiter(
-                $c->get('path.cache') . '/rate-limit',
-                $c->get(TimeDateInterface::class),
-            ),
-            $config->get('rate-limit', 'fallback_hold_seconds', 300),
-            $c->get(LoggerInterface::class),
+        $fileRateLimiter = new FileRateLimiter(
+            $c->get('path.cache') . '/rate-limit',
+            $c->get(TimeDateInterface::class),
         );
+
+        return match ($config->get('rate-limit', 'driver', 'redis')) {
+            'file' => $fileRateLimiter,
+            'redis' => new FailoverRateLimiter(
+                new RedisRateLimiter(
+                    $c->get(RedisClient::class),
+                    $c->get(RequestMetrics::class),
+                ),
+                $fileRateLimiter,
+                $config->get('rate-limit', 'fallback_hold_seconds', 300),
+                $c->get(LoggerInterface::class),
+            ),
+            default => throw new \LogicException('Неподдерживаемый RATE_LIMIT_DRIVER'),
+        };
     },
     RedisClient::class => DI\autowire(RedisClient::class),
     AdminUserService::class => DI\autowire(AdminUserService::class),

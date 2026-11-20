@@ -81,6 +81,20 @@ class RateLimitMiddleware extends AbstractMiddleware
                 ->withHeader('X-RateLimit-Remaining', '0');
         }
 
+        if (in_array($request->method(), ['GET', 'HEAD'], true)) {
+            $body = $request->method() === 'HEAD'
+                ? ''
+                : "Слишком много запросов. Повторите попытку через {$retryAfter} сек.";
+
+            return Response::html(
+                $body,
+                429,
+            )
+                ->withHeader('Retry-After', (string) $retryAfter)
+                ->withHeader('X-RateLimit-Limit', (string) $maxAttempts)
+                ->withHeader('X-RateLimit-Remaining', '0');
+        }
+
         $this->session->flash('error', "Слишком много попыток. Повторите через {$retryAfter} сек.");
 
         $fallbackUrl = $request->uri() !== '' ? $request->uri() : $this->router->route('home');

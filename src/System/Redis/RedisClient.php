@@ -31,6 +31,7 @@ final class RedisClient
         $password = (string) $this->config->get('redis', 'password', '');
         $database = (int) $this->config->get('redis', 'database', 0);
         $prefix = (string) $this->config->get('redis', 'prefix', 'vengine:');
+        $site = (string) $this->config->env('APP_SITE', 'Corporate');
         $connectTimeout = (float) $this->config->get('redis', 'connect_timeout', 1.0);
         $readTimeout = (float) $this->config->get('redis', 'timeout', 0.5);
 
@@ -52,8 +53,8 @@ final class RedisClient
                 $redis->select($database);
             }
 
-            if ($prefix !== '') {
-                $redis->setOption(Redis::OPT_PREFIX, $prefix);
+            if (!$redis->setOption(Redis::OPT_PREFIX, RedisNamespace::forSite($prefix, $site))) {
+                throw new RedisException('Не удалось настроить namespace Redis для выбранного сайта');
             }
 
             $this->client = $redis;

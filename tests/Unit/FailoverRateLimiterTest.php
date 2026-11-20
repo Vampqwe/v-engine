@@ -65,6 +65,21 @@ final class FailoverRateLimiterTest extends TestCase
         self::assertSame(2, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
     }
 
+    public function testClearResetsPrimaryAndFallbackCountersWhileFallbackIsActive(): void
+    {
+        $redis = new TestRedisRateLimiter();
+        $redis->available = false;
+        $limiter = $this->makeFailover($redis);
+        self::assertSame(1, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
+
+        $redis->available = true;
+        $limiter->clear('admin_login', '192.0.2.1');
+
+        self::assertSame(1, $redis->clearCalls);
+        $this->clock->advance(301);
+        self::assertSame(1, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
+    }
+
     private function makeFailover(
         RateLimiterInterface $redis,
         ?FileRateLimiter $fileBackend = null,
@@ -85,6 +100,7 @@ final class TestRedisRateLimiter implements RateLimiterInterface
 {
     public bool $available = true;
     public int $hitCalls = 0;
+    public int $clearCalls = 0;
     private int $successfulHits = 0;
 
     public function hit(string $bucket, string $identifier, int $decaySeconds): RateLimitResult
@@ -103,6 +119,9 @@ final class TestRedisRateLimiter implements RateLimiterInterface
         if (!$this->available) {
             throw new RateLimiterException('Redis unavailable');
         }
+
+        $this->clearCalls++;
+        $this->successfulHits = 0;
     }
 }
 

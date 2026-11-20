@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace VEngine\System\Cache;
 
+use Throwable;
 use VEngine\System\File\FileInterface;
 use VEngine\System\TimeDate\TimeDateInterface;
 
@@ -24,8 +25,12 @@ final class FileCache extends AbstractCache
             return $default;
         }
 
-        $payload = unserialize($this->file->read($path), ['allowed_classes' => false]);
-        if (!is_array($payload) || $this->isExpired($payload)) {
+        $payload = @unserialize($this->file->read($path), ['allowed_classes' => false]);
+        if (
+            !is_array($payload)
+            || !array_key_exists('data', $payload)
+            || $this->isExpired($payload)
+        ) {
             $this->delete($key);
             return $default;
         }
@@ -36,7 +41,28 @@ final class FileCache extends AbstractCache
     public function set(string $key, mixed $value, int $ttl = 3600): bool
     {
         $payload = serialize($this->preparePayload($value, $ttl));
-        return $this->file->write($this->getPath($key), $payload);
+        $path = $this->getPath($key);
+        $directory = dirname($path);
+        $this->file->ensureDirectory($directory);
+
+        $temporaryPath = tempnam($directory, basename($path) . '.');
+        if ($temporaryPath === false) {
+            throw new CacheException('Не удалось создать временный файл кэша');
+        }
+
+        try {
+            $this->file->write($temporaryPath, $payload);
+            if (!rename($temporaryPath, $path)) {
+                throw new CacheException('Не удалось атомарно сохранить файл кэша');
+            }
+        } catch (Throwable $e) {
+            if (is_file($temporaryPath) && !unlink($temporaryPath)) {
+                throw new CacheException('Не удалось удалить временный файл кэша', 0, $e);
+            }
+            throw $e;
+        }
+
+        return true;
     }
 
     public function delete(string $key): bool

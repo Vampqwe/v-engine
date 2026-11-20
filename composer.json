@@ -15,7 +15,7 @@
         "phpunit/phpunit": "^11.5"
     },
     "suggest": {
-        "ext-redis": "Required when CACHE_DRIVER or SESSION_DRIVER is set to redis."
+        "ext-redis": "Required when CACHE_DRIVER, SESSION_DRIVER, or RATE_LIMIT_DRIVER is set to redis."
     },
     "autoload": {
         "psr-4": {

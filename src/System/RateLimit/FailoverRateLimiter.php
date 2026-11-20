@@ -45,17 +45,15 @@ final class FailoverRateLimiter implements RateLimiterInterface
 
     public function clear(string $bucket, string $identifier): void
     {
-        if ($this->fallback->isFailoverActive($bucket, $identifier)) {
-            $this->fallback->clear($bucket, $identifier);
-            return;
-        }
-
         try {
             $this->primary->clear($bucket, $identifier);
         } catch (RateLimiterException $e) {
             $this->activateFallback($bucket, $identifier, $this->fallbackHoldSeconds, $e);
             $this->fallback->clear($bucket, $identifier);
+            return;
         }
+
+        $this->fallback->clear($bucket, $identifier);
     }
 
     private function activateFallback(

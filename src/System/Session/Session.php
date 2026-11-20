@@ -6,6 +6,7 @@ namespace VEngine\System\Session;
 
 use VEngine\System\Config\ConfigInterface;
 use VEngine\System\Map\MapInterface;
+use VEngine\System\Redis\RedisNamespace;
 
 final class Session implements SessionInterface
 {
@@ -68,7 +69,10 @@ final class Session implements SessionInterface
         $port = (int) $this->config->get('redis', 'port', 6379);
         $password = (string) $this->config->get('redis', 'password', '');
         $database = (int) $this->config->get('redis', 'database', 0);
-        $prefix = (string) $this->config->get('redis', 'prefix', 'vengine:') . 'sess:';
+        $prefix = RedisNamespace::forSite(
+            (string) $this->config->get('redis', 'prefix', 'vengine:'),
+            (string) $this->config->env('APP_SITE', 'Corporate'),
+        ) . 'sess:';
 
         $query = [
             'database'     => $database,
@@ -130,6 +134,10 @@ final class Session implements SessionInterface
 
     public function getFlash(string $key, mixed $default = null): mixed
     {
+        if (!$this->hasSessionToRead()) {
+            return $default;
+        }
+
         $this->ensureStarted();
         if (!isset($_SESSION[self::FLASH_KEY]) || !array_key_exists($key, $_SESSION[self::FLASH_KEY])) {
             return $default;
@@ -184,5 +192,15 @@ final class Session implements SessionInterface
         if (session_status() !== PHP_SESSION_ACTIVE) {
             $this->start();
         }
+    }
+
+    private function hasSessionToRead(): bool
+    {
+        if (session_status() === PHP_SESSION_ACTIVE || session_id() !== '') {
+            return true;
+        }
+
+        $name = (string) $this->config->get('session', 'name', 'VENGINE_SESSID');
+        return isset($_COOKIE[$name]) && $_COOKIE[$name] !== '';
     }
 }

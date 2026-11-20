@@ -2,7 +2,13 @@
 
 declare(strict_types=1);
 
+$driver = $_ENV['RATE_LIMIT_DRIVER'] ?? $_SERVER['RATE_LIMIT_DRIVER'] ?? 'redis';
+if (!in_array($driver, ['file', 'redis'], true)) {
+    throw new \RuntimeException('RATE_LIMIT_DRIVER должен быть file или redis');
+}
+
 return [
+    'driver' => $driver,
     'fallback_hold_seconds' => 300,
     'global' => [
         'max_attempts' => 60,
