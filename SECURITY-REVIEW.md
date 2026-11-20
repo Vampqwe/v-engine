@@ -1,6 +1,6 @@
 # Security review
 
-This report records confirmed security findings identified during the codebase review and the remediation made in the current worktree. This was a source review, not a penetration test. The changes listed here are present in the worktree; they have not been included in this documentation-only commit.
+This report records confirmed security findings identified during the codebase review and related hardening. This was a source review, not a penetration test; environment-dependent risks require review of the actual deployment topology.
 
 | # | Severity | File | Lines | Vulnerability | Confidence |
 |---|----------|------|-------|---------------|------------|
@@ -15,14 +15,17 @@ This report records confirmed security findings identified during the codebase r
 ## Additional related hardening
 
 - Session-store failures with the Redis session driver now return HTTP 503; session garbage-collection probability is explicitly configured.
-- The rate limiter defaults to the file driver, reports Redis usage accurately, avoids a second failover hit, shards state files, and periodically removes expired entries.
+- The rate limiter defaults to the file driver, reports Redis usage accurately, avoids a second failover hit, shards state files, and removes expired entries probabilistically. `composer rate-limit:gc` provides a blocking CLI cleanup for scheduled runs; it is not configured automatically.
+- Production route-cache entries are fingerprinted against the route-file list and contents, so route changes invalidate stale compiled routes. Failures to write the cache are logged.
+- Production startup now reports explicitly when the DI compilation directory cannot be created or written.
 - Error responses preserve their HTTP status and API JSON format. HTTP response headers are validated against control-character injection.
 - File and Redis cache reads now handle malformed payloads consistently; file-cache reads treat concurrent deletion as a cache miss, and non-positive TTLs do not create entries.
 - Production defaults, security headers, request-body limits, and error rendering were tightened.
 
 ## Validation
 
-- `composer test`: passed; 58 tests, 144 assertions, 1 skipped.
-- `composer cs:check`: passed.
-- `php -l` on changed PHP files: passed.
-- MySQL/Redis integration tests were not run in this environment.
+- `composer test`: passed; 70 tests, 167 assertions, 1 skipped.
+- Focused regression tests for rate-limit cleanup, route-cache invalidation, and DI-cache setup: passed; 14 tests, 37 assertions.
+- `composer cs:check`: passed on PHP 8.5.1 (PHP-CS-Fixer warned that the project minimum is PHP 8.2).
+- `php -l` on changed PHP files, `composer validate --no-check-publish`, and `git -c core.whitespace=cr-at-eol diff --check`: passed.
+- Load testing for rate-limit cleanup and MySQL/Redis integration tests were not run as part of this validation.
