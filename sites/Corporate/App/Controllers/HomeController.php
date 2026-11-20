@@ -14,8 +14,7 @@ final class HomeController extends AbstractController
     public function index(): ResponseInterface
     {
         return $this->view('home/index', [
-            'title'    => 'Главная страница',
-            'username' => 'Developer',
+            'title' => 'V-engine — создавайте сайты по-своему',
         ]);
     }
 
