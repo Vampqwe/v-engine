@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Admin\Controllers;
 
 use App\Controllers\AbstractController;
-use VEngine\System\Config\ConfigInterface;
+use Modules\Admin\Services\EngineStatsService;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Router\RouterInterface;
