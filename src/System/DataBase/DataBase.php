@@ -9,6 +9,7 @@ use PDOException;
 use PDOStatement;
 use VEngine\System\Config\ConfigInterface;
 use VEngine\System\Logger\LoggerInterface;
+use VEngine\System\Monitoring\RequestMetrics;
 
 final class DataBase implements DataBaseInterface
 {
@@ -16,6 +17,7 @@ final class DataBase implements DataBaseInterface
     private LoggerInterface $logger;
     public function __construct(
         private readonly ConfigInterface $config,
+        private readonly RequestMetrics $metrics,
         LoggerInterface $logger,
     ) {
         $this->logger = $logger->forModule('DataBase');
@@ -29,12 +31,14 @@ final class DataBase implements DataBaseInterface
             $user = $this->config->get('database', 'user', 'root');
             $pass = $this->config->get('database', 'password', '');
             $charset = $this->config->get('database', 'charset', 'utf8mb4');
+            $timeout = $this->config->get('database', 'connect_timeout', 2);
             $dsn = "mysql:host={$host};port={$port};dbname={$name};charset={$charset}";
             try {
                 $this->pdo = new PDO($dsn, $user, $pass, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::ATTR_TIMEOUT => $timeout,
                 ]);
             } catch (PDOException $e) {
                 $this->logger->error('Ошибка подключения к MySQL', ['error' => $e->getMessage()]);
@@ -45,6 +49,7 @@ final class DataBase implements DataBaseInterface
     }
     public function query(string $sql, array $params = []): PDOStatement
     {
+        $startedAt = hrtime(true);
         try {
             $stmt = $this->connection()->prepare($sql);
             $stmt->execute($params);
@@ -52,6 +57,8 @@ final class DataBase implements DataBaseInterface
         } catch (PDOException $e) {
             $this->logger->error('Ошибка выполнения SQL', ['sql' => $sql, 'error' => $e->getMessage()]);
             throw new DataBaseException('Ошибка выполнения запроса к БД', 0, $e);
+        } finally {
+            $this->metrics->record('db', hrtime(true) - $startedAt);
         }
     }
 }

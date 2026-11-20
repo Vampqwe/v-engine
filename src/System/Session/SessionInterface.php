@@ -14,5 +14,6 @@ interface SessionInterface
     public function flash(string $key, mixed $value): void;
     public function getFlash(string $key, mixed $default = null): mixed;
     public function regenerate(bool $deleteOldSession = true): void;
+    public function close(): void;
     public function destroy(): void;
 }

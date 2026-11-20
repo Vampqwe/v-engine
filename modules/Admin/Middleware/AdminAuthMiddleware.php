@@ -28,6 +28,7 @@ final class AdminAuthMiddleware extends AbstractMiddleware
     public function process(RequestInterface $request, callable $next): ResponseInterface
     {
         $adminId = $this->session->get('admin_user_id');
+        $this->session->close();
 
         if (!is_int($adminId) && !ctype_digit((string) $adminId)) {
             return $this->denyAccess($request);

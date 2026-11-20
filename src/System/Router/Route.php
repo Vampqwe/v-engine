@@ -83,6 +83,11 @@ final class Route
         return $this->handler;
     }
 
+    public function getMethod(): string
+    {
+        return $this->method;
+    }
+
     public function getMiddlewares(): array
     {
         return $this->middlewares;

@@ -85,6 +85,32 @@ final class FailoverCacheTest extends TestCase
         self::assertSame('missing', $this->cache->get('delete-key', 'missing'));
         self::assertSame('missing', $this->primary->get('delete-key', 'missing'));
     }
+
+    public function testHealthyRedisWritesDoNotWriteToTheFileFallbackOrJournal(): void
+    {
+        self::assertTrue($this->cache->set('healthy-key', 'redis-only', 60));
+
+        self::assertSame('redis-only', $this->primary->get('healthy-key'));
+        self::assertFileDoesNotExist($this->directory . '/pending.dat');
+        self::assertDirectoryDoesNotExist($this->directory . '/data');
+    }
+
+    public function testRecoveryIsProcessedInBoundedBatches(): void
+    {
+        $this->primary->available = false;
+        for ($index = 0; $index < 12; $index++) {
+            $this->cache->set('batch-' . $index, $index, 60);
+        }
+
+        $this->primary->available = true;
+        self::assertSame(0, $this->cache->get('batch-0'));
+        self::assertSame(11, $this->cache->get('batch-11'));
+        for ($index = 0; $index < 12; $index++) {
+            self::assertSame($index, $this->primary->get('batch-' . $index));
+        }
+
+        self::assertFileDoesNotExist($this->directory . '/pending.dat');
+    }
 }
 
 final class TestCacheStore implements CacheInterface

@@ -22,6 +22,7 @@ use VEngine\System\Http\Request;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Logger\Logger;
 use VEngine\System\Logger\LoggerInterface;
+use VEngine\System\Monitoring\RequestMetrics;
 use VEngine\System\Map\Map;
 use VEngine\System\Map\MapInterface;
 use VEngine\System\Router\Router;
@@ -45,6 +46,7 @@ use Modules\Admin\Services\EngineStatsService;
 
 return [
     ErrorRendererInterface::class => DI\autowire(ErrorRenderer::class),
+    RequestMetrics::class         => DI\autowire(RequestMetrics::class),
     MapInterface::class           => DI\autowire(Map::class),
     FileInterface::class          => DI\autowire(File::class),
     TimeDateInterface::class      => DI\autowire(TimeDate::class),
@@ -88,6 +90,7 @@ return [
                 ? new FailoverCache(
                     new RedisCache(
                         $c->get(RedisClient::class),
+                        $c->get(RequestMetrics::class),
                         $c->get(TimeDateInterface::class),
                     ),
                     new FileCache(
@@ -104,6 +107,7 @@ return [
                 )
                 : new RedisCache(
                     $c->get(RedisClient::class),
+                    $c->get(RequestMetrics::class),
                     $c->get(TimeDateInterface::class),
                 ),
             'file' => new FileCache(

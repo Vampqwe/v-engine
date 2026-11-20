@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace VEngine\System\Cache;
 
 use Throwable;
-use VEngine\System\Exception\BaseException;
 use VEngine\System\Logger\LoggerInterface;
 use VEngine\System\TimeDate\TimeDateInterface;
 
@@ -25,7 +24,7 @@ final class FailoverCache implements CacheInterface
 
     public function get(string $key, mixed $default = null): mixed
     {
-        if (!$this->recoverPendingWrites()) {
+        if ($this->journal->hasPending() && !$this->recoverPendingWrites()) {
             return $this->fallback->get($key, $default);
         }
 
@@ -43,7 +42,7 @@ final class FailoverCache implements CacheInterface
             return $this->delete($key);
         }
 
-        if (!$this->recoverPendingWrites()) {
+        if ($this->journal->hasPending() && !$this->recoverPendingWrites()) {
             return $this->writeToFallback($key, $value, $ttl);
         }
 
@@ -58,13 +57,12 @@ final class FailoverCache implements CacheInterface
             return $this->writeToFallback($key, $value, $ttl);
         }
 
-        $this->mirrorSet($key, $value, $ttl);
         return true;
     }
 
     public function delete(string $key): bool
     {
-        if (!$this->recoverPendingWrites()) {
+        if ($this->journal->hasPending() && !$this->recoverPendingWrites()) {
             return $this->deleteFromFallback($key);
         }
 
@@ -79,17 +77,19 @@ final class FailoverCache implements CacheInterface
             return $this->deleteFromFallback($key);
         }
 
-        $this->mirrorDelete($key);
         return true;
     }
 
     private function recoverPendingWrites(): bool
     {
         try {
-            $this->journal->replay(function (array $entry): void {
+            return $this->journal->replay(function (array $entry): void {
                 if ($entry['operation'] === 'delete') {
                     if (!$this->primary->delete($entry['key'])) {
                         throw new CacheException('Не удалось восстановить удаление кэш-ключа в Redis');
+                    }
+                    if (!$this->fallback->delete($entry['key'])) {
+                        throw new CacheException('Не удалось очистить файловую копию удалённого ключа');
                     }
                     return;
                 }
@@ -103,14 +103,13 @@ final class FailoverCache implements CacheInterface
                     throw new CacheException('Не удалось восстановить кэш-ключ в Redis');
                 }
 
-                if ($ttl > 0) {
-                    $this->mirrorSet($entry['key'], $entry['value'], $ttl);
-                } else {
-                    $this->mirrorDelete($entry['key']);
+                $fallbackUpdated = $ttl > 0
+                    ? $this->fallback->set($entry['key'], $entry['value'], $ttl)
+                    : $this->fallback->delete($entry['key']);
+                if (!$fallbackUpdated) {
+                    throw new CacheException('Не удалось обновить файловую копию восстановленного ключа');
                 }
             });
-
-            return true;
         } catch (CacheException $e) {
             $this->logFailover($e);
             return false;
@@ -119,50 +118,22 @@ final class FailoverCache implements CacheInterface
 
     private function writeToFallback(string $key, mixed $value, int $ttl): bool
     {
-        $written = $this->fallback->set($key, $value, $ttl);
-        if (!$written) {
-            throw new CacheException('Не удалось записать значение в файловый failover-кэш');
-        }
-        $this->journal->recordSet($key, $value, $ttl);
+        $this->journal->recordSetWithFallback($key, $value, $ttl, function () use ($key, $value, $ttl): void {
+            if (!$this->fallback->set($key, $value, $ttl)) {
+                throw new CacheException('Не удалось записать значение в файловый failover-кэш');
+            }
+        });
         return true;
     }
 
     private function deleteFromFallback(string $key): bool
     {
-        $deleted = $this->fallback->delete($key);
-        if (!$deleted) {
-            throw new CacheException('Не удалось удалить значение из файлового failover-кэша');
-        }
-        $this->journal->recordDelete($key);
-        return true;
-    }
-
-    private function mirrorSet(string $key, mixed $value, int $ttl): void
-    {
-        try {
-            if (!$this->fallback->set($key, $value, $ttl)) {
-                $this->logger->error('Не удалось обновить файловую копию кэша');
-            }
-        } catch (BaseException $e) {
-            $this->logger->error('Не удалось обновить файловую копию кэша', [
-                'exception' => $e::class,
-                'message'   => $e->getMessage(),
-            ]);
-        }
-    }
-
-    private function mirrorDelete(string $key): void
-    {
-        try {
+        $this->journal->recordDeleteWithFallback($key, function () use ($key): void {
             if (!$this->fallback->delete($key)) {
-                $this->logger->error('Не удалось обновить файловую копию кэша после удаления');
+                throw new CacheException('Не удалось удалить значение из файлового failover-кэша');
             }
-        } catch (BaseException $e) {
-            $this->logger->error('Не удалось обновить файловую копию кэша после удаления', [
-                'exception' => $e::class,
-                'message'   => $e->getMessage(),
-            ]);
-        }
+        });
+        return true;
     }
 
     private function logFailover(Throwable $e): void

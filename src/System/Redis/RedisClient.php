@@ -31,12 +31,17 @@ final class RedisClient
         $password = (string) $this->config->get('redis', 'password', '');
         $database = (int) $this->config->get('redis', 'database', 0);
         $prefix = (string) $this->config->get('redis', 'prefix', 'vengine:');
-        $timeout = (float) $this->config->get('redis', 'timeout', 2.0);
+        $connectTimeout = (float) $this->config->get('redis', 'connect_timeout', 1.0);
+        $readTimeout = (float) $this->config->get('redis', 'timeout', 0.5);
 
         try {
             $redis = new Redis();
-            if (!$redis->connect($host, $port, $timeout)) {
+            if (!$redis->connect($host, $port, $connectTimeout)) {
                 throw new RedisException("Не удалось подключиться к Redis ({$host}:{$port})");
+            }
+
+            if (!$redis->setOption(Redis::OPT_READ_TIMEOUT, $readTimeout)) {
+                throw new RedisException('Не удалось настроить таймаут чтения Redis');
             }
 
             if ($password !== '') {

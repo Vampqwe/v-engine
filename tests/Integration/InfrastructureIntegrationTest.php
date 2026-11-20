@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use VEngine\Kernel\Application;
 use VEngine\System\Cache\CacheInterface;
 use VEngine\System\DataBase\DataBaseInterface;
+use VEngine\System\RateLimit\RateLimiterInterface;
 
 #[Group('integration')]
 final class InfrastructureIntegrationTest extends TestCase
@@ -36,5 +37,15 @@ final class InfrastructureIntegrationTest extends TestCase
         self::assertTrue($cache->set($key, 'redis-ok', 30));
         self::assertSame('redis-ok', $cache->get($key));
         self::assertTrue($cache->delete($key));
+
+        /** @var RateLimiterInterface $rateLimiter */
+        $rateLimiter = $container->get(RateLimiterInterface::class);
+        $bucket = 'ci-integration';
+        $identifier = bin2hex(random_bytes(8));
+        self::assertSame(1, $rateLimiter->hit($bucket, $identifier, 30)->attempts);
+        self::assertSame(2, $rateLimiter->hit($bucket, $identifier, 30)->attempts);
+        $rateLimiter->clear($bucket, $identifier);
+        self::assertSame(1, $rateLimiter->hit($bucket, $identifier, 30)->attempts);
+        $rateLimiter->clear($bucket, $identifier);
     }
 }

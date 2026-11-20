@@ -15,6 +15,9 @@ final class Router implements RouterInterface
     /** @var Route[] */
     private array $routes = [];
 
+    /** @var array<string, Route[]> */
+    private array $routesByMethod = [];
+
     /** @var array<string, Route> */
     private array $namedRoutes = [];
 
@@ -69,6 +72,7 @@ final class Router implements RouterInterface
         );
 
         $this->routes[] = $route;
+        $this->routesByMethod[strtoupper($method)][] = $route;
         return $route;
     }
 
@@ -101,7 +105,7 @@ final class Router implements RouterInterface
         $method = $request->method();
         $uri = $request->uri();
 
-        foreach ($this->routes as $route) {
+        foreach ($this->routesByMethod[$method] ?? [] as $route) {
             $params = [];
             if ($route->matches($method, $uri, $params)) {
                 return $this->runPipeline($route, $request, $params);
@@ -221,10 +225,12 @@ final class Router implements RouterInterface
     public function loadCompiled(array $compiled): void
     {
         $this->routes = [];
+        $this->routesByMethod = [];
         $this->namedRoutes = [];
 
         foreach ($compiled['routes'] as $index => $routeData) {
             $this->routes[$index] = Route::fromArray($routeData);
+            $this->routesByMethod[$this->routes[$index]->getMethod()][] = $this->routes[$index];
         }
 
         foreach ($compiled['named'] as $fullName => $index) {

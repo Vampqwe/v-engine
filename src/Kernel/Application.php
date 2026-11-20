@@ -9,6 +9,7 @@ use Psr\Container\ContainerInterface;
 use VEngine\System\Error\ErrorHandlerInterface;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Logger\LoggerInterface;
+use VEngine\System\Monitoring\RequestMetrics;
 use VEngine\System\Router\RouterInterface;
 
 final class Application
@@ -16,9 +17,11 @@ final class Application
     private ContainerInterface $container;
     private array $paths = [];
     private bool $isProd;
+    private int $requestStartedAt;
 
     public function __construct(string $rootPath)
     {
+        $this->requestStartedAt = hrtime(true);
         $root = rtrim($rootPath, DIRECTORY_SEPARATOR);
         $siteName = $_ENV['APP_SITE'] ?? $_SERVER['APP_SITE'] ?? 'Corporate';
         if (!is_string($siteName) || preg_match('/\A[A-Za-z][A-Za-z0-9_-]*\z/', $siteName) !== 1) {
@@ -94,9 +97,11 @@ final class Application
             ]);
         }
 
+        $metrics = $this->container->get(RequestMetrics::class);
+        $metrics->startRequest($this->requestStartedAt);
         $router = $this->container->get(RouterInterface::class);
         $response = $router->dispatch($request);
-        $response->send();
+        $response->withHeader('Server-Timing', $metrics->serverTiming())->send();
     }
 
     public function getContainer(): ContainerInterface

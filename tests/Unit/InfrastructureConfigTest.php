@@ -10,7 +10,7 @@ final class InfrastructureConfigTest extends TestCase
 {
     public function testDatabaseAndRedisSettingsAreReadFromEnvironment(): void
     {
-        $keys = ['DB_HOST', 'DB_PORT', 'DB_PASS', 'REDIS_TIMEOUT'];
+        $keys = ['DB_HOST', 'DB_PORT', 'DB_PASS', 'DB_CONNECT_TIMEOUT', 'REDIS_TIMEOUT', 'REDIS_CONNECT_TIMEOUT'];
         $previous = [];
         foreach ($keys as $key) {
             $previous[$key] = [
@@ -25,7 +25,9 @@ final class InfrastructureConfigTest extends TestCase
         $_ENV['DB_HOST'] = 'database.internal';
         $_ENV['DB_PORT'] = '3307';
         $_ENV['DB_PASS'] = 'test-only-password';
+        $_ENV['DB_CONNECT_TIMEOUT'] = '5';
         $_ENV['REDIS_TIMEOUT'] = '4.5';
+        $_ENV['REDIS_CONNECT_TIMEOUT'] = '3';
 
         try {
             $database = require dirname(__DIR__, 2) . '/config/database.php';
@@ -34,7 +36,9 @@ final class InfrastructureConfigTest extends TestCase
             self::assertSame('database.internal', $database['host']);
             self::assertSame(3307, $database['port']);
             self::assertSame('test-only-password', $database['password']);
+            self::assertSame(5, $database['connect_timeout']);
             self::assertSame(4.5, $redis['timeout']);
+            self::assertSame(3.0, $redis['connect_timeout']);
         } finally {
             foreach ($previous as $key => $state) {
                 unset($_ENV[$key], $_SERVER[$key]);

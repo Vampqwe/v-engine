@@ -14,10 +14,24 @@ final class CacheFailoverJournal
         private readonly FileInterface $file,
     ) {}
 
-    public function recordSet(string $key, mixed $value, int $ttl): void
+    public function hasPending(): bool
+    {
+        if (!is_file($this->path)) {
+            return false;
+        }
+
+        $size = filesize($this->path);
+        if ($size === false) {
+            throw new CacheException('Не удалось проверить журнал failover-кэша');
+        }
+
+        return $size > 0;
+    }
+
+    public function recordSetWithFallback(string $key, mixed $value, int $ttl, callable $persistFallback): void
     {
         if ($ttl <= 0) {
-            $this->recordDelete($key);
+            $this->recordDeleteWithFallback($key, $persistFallback);
             return;
         }
 
@@ -26,33 +40,50 @@ final class CacheFailoverJournal
             'operation'  => 'set',
             'value'      => $value,
             'expires_at' => time() + $ttl,
-        ]);
+        ], $persistFallback);
     }
 
-    public function recordDelete(string $key): void
+    public function recordDeleteWithFallback(string $key, callable $persistFallback): void
     {
         $this->update($key, [
             'key'       => $key,
             'operation' => 'delete',
-        ]);
+        ], $persistFallback);
     }
 
-    public function replay(callable $apply): void
+    public function replay(callable $apply, int $maxEntries = 10): bool
     {
-        $this->withLock(function () use ($apply): void {
-            $entries = $this->readEntries();
+        if ($maxEntries < 1) {
+            throw new \InvalidArgumentException('Размер пакета replay должен быть положительным');
+        }
 
-            foreach ($entries as $hash => $entry) {
+        return $this->withLock(function () use ($apply, $maxEntries): bool {
+            $entries = $this->readEntries();
+            $batch = array_slice($entries, 0, $maxEntries, true);
+
+            foreach ($batch as $hash => $entry) {
                 $apply($entry);
                 unset($entries[$hash]);
-                $this->writeEntries($entries);
             }
+
+            if ($entries === []) {
+                if (is_file($this->path) && !unlink($this->path)) {
+                    throw new CacheException('Не удалось очистить журнал failover-кэша после восстановления');
+                }
+                return true;
+            }
+
+            $this->writeEntries($entries);
+            return false;
         });
     }
 
-    private function update(string $key, array $entry): void
+    private function update(string $key, array $entry, ?callable $beforeWrite = null): void
     {
-        $this->withLock(function () use ($key, $entry): void {
+        $this->withLock(function () use ($key, $entry, $beforeWrite): void {
+            if ($beforeWrite !== null) {
+                $beforeWrite();
+            }
             $entries = $this->readEntries();
             $entries[hash('sha256', $key)] = $entry;
             $this->writeEntries($entries);

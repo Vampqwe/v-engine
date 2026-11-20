@@ -71,9 +71,10 @@ final class Session implements SessionInterface
         $prefix = (string) $this->config->get('redis', 'prefix', 'vengine:') . 'sess:';
 
         $query = [
-            'database' => $database,
-            'prefix'   => $prefix,
-            'timeout'  => (float) $this->config->get('redis', 'timeout', 2.0),
+            'database'     => $database,
+            'prefix'       => $prefix,
+            'timeout'      => (float) $this->config->get('redis', 'connect_timeout', 1.0),
+            'read_timeout' => (float) $this->config->get('redis', 'timeout', 0.5),
         ];
 
         if ($password !== '') {
@@ -144,6 +145,13 @@ final class Session implements SessionInterface
         $this->ensureStarted();
         if (!session_regenerate_id($deleteOldSession)) {
             throw new SessionException('Не удалось регенерировать идентификатор сессии');
+        }
+    }
+
+    public function close(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE && !session_write_close()) {
+            throw new SessionException('Не удалось сохранить и закрыть сессию');
         }
     }
 
