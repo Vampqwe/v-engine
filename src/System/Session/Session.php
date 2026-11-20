@@ -153,14 +153,21 @@ final class Session implements SessionInterface
             return $default;
         }
 
+        $wasActive = session_status() === PHP_SESSION_ACTIVE;
         $this->ensureStarted();
-        if (!isset($_SESSION[self::FLASH_KEY]) || !array_key_exists($key, $_SESSION[self::FLASH_KEY])) {
-            return $default;
-        }
+        try {
+            if (!isset($_SESSION[self::FLASH_KEY]) || !array_key_exists($key, $_SESSION[self::FLASH_KEY])) {
+                return $default;
+            }
 
-        $value = $_SESSION[self::FLASH_KEY][$key];
-        unset($_SESSION[self::FLASH_KEY][$key]);
-        return $value;
+            $value = $_SESSION[self::FLASH_KEY][$key];
+            unset($_SESSION[self::FLASH_KEY][$key]);
+            return $value;
+        } finally {
+            if (!$wasActive) {
+                $this->close();
+            }
+        }
     }
 
     public function regenerate(bool $deleteOldSession = true): void

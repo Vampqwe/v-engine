@@ -32,7 +32,7 @@ final class FailoverRateLimiter implements RateLimiterInterface
         try {
             $result = $this->primary->hit($bucket, $identifier, $decaySeconds);
         } catch (RateLimiterException $e) {
-            $this->activateFallback($bucket, $identifier, $decaySeconds, $e);
+            $this->activateFallback($bucket, $identifier, $this->fallbackHoldSeconds, $e);
             return $this->fallback->hit($bucket, $identifier, $decaySeconds);
         }
 

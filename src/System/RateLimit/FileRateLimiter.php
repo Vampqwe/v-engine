@@ -5,15 +5,24 @@ declare(strict_types=1);
 namespace VEngine\System\RateLimit;
 
 use JsonException;
+use FilesystemIterator;
 use Throwable;
+use VEngine\System\Logger\LoggerInterface;
 use VEngine\System\TimeDate\TimeDateInterface;
 
 final class FileRateLimiter implements RateLimiterInterface
 {
+    private const GARBAGE_COLLECTION_SCAN_LIMIT = 200;
+
+    private ?LoggerInterface $logger;
+
     public function __construct(
         private readonly string $storageDir,
         private readonly TimeDateInterface $timeDate,
-    ) {}
+        ?LoggerInterface $logger = null,
+    ) {
+        $this->logger = $logger?->forModule('Security');
+    }
 
     public function hit(string $bucket, string $identifier, int $decaySeconds): RateLimitResult
     {
@@ -79,10 +88,20 @@ final class FileRateLimiter implements RateLimiterInterface
         bool $persist = true,
         bool $create = true,
     ): mixed {
-        $this->ensureDirectory($this->storageDir);
-        $this->collectGarbageOccasionally();
+        $path = $this->getStatePath($bucket, $identifier);
+        if (!$create && !is_file($path)) {
+            $state = $this->emptyState();
+            return $callback($state);
+        }
 
-        $gcLock = fopen($this->storageDir . '/.gc.lock', 'c');
+        $this->ensureDirectory($this->storageDir);
+        try {
+            $this->collectGarbageOccasionally();
+        } catch (Throwable $e) {
+            $this->logGarbageCollectionFailure($e);
+        }
+
+        $gcLock = @fopen($this->storageDir . '/.gc.lock', 'c');
         if ($gcLock === false || !flock($gcLock, LOCK_SH)) {
             if (is_resource($gcLock)) {
                 fclose($gcLock);
@@ -94,10 +113,8 @@ final class FileRateLimiter implements RateLimiterInterface
         $locked = false;
 
         try {
-            $hash = hash('sha256', $bucket . "\0" . $identifier);
-            $directory = $this->storageDir . '/' . substr($hash, 0, 2);
+            $directory = dirname($path);
             $this->ensureDirectory($directory);
-            $path = $directory . '/' . $hash . '.json';
 
             if (!$create && !is_file($path)) {
                 $state = $this->emptyState();
@@ -158,36 +175,61 @@ final class FileRateLimiter implements RateLimiterInterface
 
     private function collectExpiredStates(): int
     {
-        $lock = fopen($this->storageDir . '/.gc.lock', 'c');
-        if ($lock === false || !flock($lock, LOCK_EX)) {
-            if (is_resource($lock)) {
-                fclose($lock);
-            }
-            throw new RateLimiterException('Не удалось заблокировать каталог для очистки rate limiter');
+        $lock = @fopen($this->storageDir . '/.gc.lock', 'c');
+        if ($lock === false) {
+            throw new RateLimiterException('Не удалось открыть блокировку очистки rate limiter');
+        }
+        if (!@flock($lock, LOCK_EX | LOCK_NB)) {
+            fclose($lock);
+            return 0;
         }
 
         try {
             $cutoff = $this->timeDate->timestamp() - 86400;
             $removed = 0;
-            foreach (glob($this->storageDir . '/*/*.json') ?: [] as $path) {
-                $contents = @file_get_contents($path);
-                if ($contents === false) {
-                    continue;
+            $shards = [];
+            foreach (new FilesystemIterator($this->storageDir, FilesystemIterator::SKIP_DOTS) as $entry) {
+                if ($entry->isDir() && preg_match('/\A[a-f0-9]{2}\z/', $entry->getFilename()) === 1) {
+                    $shards[] = $entry->getPathname();
                 }
+            }
+            shuffle($shards);
 
-                try {
-                    $state = $this->decodeState($contents);
-                } catch (RateLimiterException) {
-                    continue;
-                }
-
-                $isExpired = $state['fallback_until'] <= $this->timeDate->timestamp()
-                    && $state['window_started_at'] < $cutoff;
-                if ($isExpired) {
-                    if (!unlink($path)) {
-                        throw new RateLimiterException('Не удалось удалить просроченное состояние rate limiter');
+            $scanned = 0;
+            foreach ($shards as $shard) {
+                foreach (new FilesystemIterator($shard, FilesystemIterator::SKIP_DOTS) as $entry) {
+                    if ($scanned >= self::GARBAGE_COLLECTION_SCAN_LIMIT) {
+                        break 2;
                     }
-                    $removed++;
+                    if (!$entry->isFile() || $entry->getExtension() !== 'json') {
+                        continue;
+                    }
+                    $scanned++;
+
+                    if ($entry->getMTime() >= $cutoff) {
+                        continue;
+                    }
+
+                    $path = $entry->getPathname();
+                    $contents = @file_get_contents($path);
+                    if ($contents === false) {
+                        continue;
+                    }
+
+                    try {
+                        $state = $this->decodeState($contents);
+                    } catch (RateLimiterException) {
+                        continue;
+                    }
+
+                    $isExpired = $state['fallback_until'] <= $this->timeDate->timestamp()
+                        && $state['window_started_at'] < $cutoff;
+                    if ($isExpired) {
+                        if (!@unlink($path)) {
+                            throw new RateLimiterException('Не удалось удалить просроченное состояние rate limiter');
+                        }
+                        $removed++;
+                    }
                 }
             }
 
@@ -196,6 +238,30 @@ final class FileRateLimiter implements RateLimiterInterface
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    private function logGarbageCollectionFailure(Throwable $exception): void
+    {
+        $message = 'Не удалось очистить устаревшие состояния rate limiter';
+        try {
+            if ($this->logger !== null) {
+                $this->logger->error($message, [
+                    'exception' => $exception::class,
+                    'message'   => $exception->getMessage(),
+                ]);
+                return;
+            }
+        } catch (Throwable $loggingException) {
+            $message .= '; ошибка логирования: ' . $loggingException->getMessage();
+        }
+
+        error_log($message . ': ' . $exception->getMessage());
+    }
+
+    private function getStatePath(string $bucket, string $identifier): string
+    {
+        $hash = hash('sha256', $bucket . "\0" . $identifier);
+        return $this->storageDir . '/' . substr($hash, 0, 2) . '/' . $hash . '.json';
     }
 
     private function ensureDirectory(string $path): void

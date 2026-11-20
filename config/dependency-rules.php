@@ -64,6 +64,7 @@ return [
         $fileRateLimiter = new FileRateLimiter(
             $c->get('path.cache') . '/rate-limit',
             $c->get(TimeDateInterface::class),
+            $c->get(LoggerInterface::class),
         );
 
         return match ($config->get('rate-limit', 'driver', 'file')) {

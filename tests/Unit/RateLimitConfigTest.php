@@ -43,6 +43,7 @@ final class RateLimitConfigTest extends TestCase
             $builder = new ContainerBuilder();
             $builder->addDefinitions([
                 'path.cache' => sys_get_temp_dir() . '/vengine-rate-limiter-test',
+                'path.log'   => sys_get_temp_dir() . '/vengine-rate-limiter-test-log',
                 'path.root'  => dirname(__DIR__, 2),
             ]);
             $builder->addDefinitions(dirname(__DIR__, 2) . '/config/dependency-rules.php');

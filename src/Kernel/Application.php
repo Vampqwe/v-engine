@@ -88,7 +88,8 @@ final class Application
 
     public function run(): void
     {
-        $this->container->get(ErrorHandlerInterface::class)->register();
+        $errorHandler = $this->container->get(ErrorHandlerInterface::class);
+        $errorHandler->register();
 
         $request = $this->container->get(RequestInterface::class);
 
@@ -115,6 +116,7 @@ final class Application
         }
 
         $response->send();
+        $errorHandler->markResponseSent();
     }
 
     public function getContainer(): ContainerInterface

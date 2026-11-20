@@ -14,6 +14,9 @@ final class AdminUserServiceTest extends TestCase
 {
     public function testUnknownEmailStillVerifiesPasswordAgainstDummyHash(): void
     {
+        $defaultHashOptions = password_get_info(password_hash('runtime-default', PASSWORD_DEFAULT))['options'];
+        $expectedCost = $defaultHashOptions['cost'] ?? null;
+
         $statement = $this->createMock(PDOStatement::class);
         $statement->method('fetch')->willReturn(false);
 
@@ -24,7 +27,8 @@ final class AdminUserServiceTest extends TestCase
         $security->expects(self::once())
             ->method('verifyPassword')
             ->with('candidate-password', self::callback(
-                static fn(string $hash): bool => password_get_info($hash)['algoName'] === 'bcrypt',
+                static fn(string $hash): bool => password_get_info($hash)['algoName'] === 'bcrypt'
+                    && password_get_info($hash)['options']['cost'] === $expectedCost,
             ))
             ->willReturn(false);
 

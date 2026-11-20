@@ -9,7 +9,8 @@ use VEngine\System\Security\SecurityInterface;
 
 final class AdminUserService
 {
-    private const DUMMY_PASSWORD_HASH = '$2y$12$wa4qrYZSEpreapTowSpGOuTbMMEZKrHld1.DbzcZ96k/zeLaAEQm2';
+    private const DUMMY_PASSWORD_HASH_COST_10 = '$2y$10$qVMdMNslWovVPb1Mnx1v5eygMQ7VvpgeSnJXM.aK297.q0I6koVHW';
+    private const DUMMY_PASSWORD_HASH_COST_12 = '$2y$12$wa4qrYZSEpreapTowSpGOuTbMMEZKrHld1.DbzcZ96k/zeLaAEQm2';
 
     public function __construct(
         private readonly DataBaseInterface $db,
@@ -53,7 +54,7 @@ final class AdminUserService
     {
         $user = $this->findByEmail($email);
         if ($user === null) {
-            $this->security->verifyPassword($password, self::DUMMY_PASSWORD_HASH);
+            $this->security->verifyPassword($password, self::dummyPasswordHash());
             return null;
         }
 
@@ -85,5 +86,12 @@ final class AdminUserService
                 'name'  => $name,
             ],
         );
+    }
+
+    private static function dummyPasswordHash(): string
+    {
+        return PHP_VERSION_ID >= 80400
+            ? self::DUMMY_PASSWORD_HASH_COST_12
+            : self::DUMMY_PASSWORD_HASH_COST_10;
     }
 }

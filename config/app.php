@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$rawProxies = (string) ($_ENV['TRUSTED_PROXIES'] ?? $_SERVER['TRUSTED_PROXIES'] ?? '127.0.0.1,::1');
+$rawProxies = (string) ($_ENV['TRUSTED_PROXIES'] ?? $_SERVER['TRUSTED_PROXIES'] ?? '');
 $trustedProxies = array_values(array_filter(array_map('trim', explode(',', $rawProxies))));
 $appEnv = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'prod';
 if (!in_array($appEnv, ['dev', 'prod'], true)) {
@@ -10,10 +10,11 @@ if (!in_array($appEnv, ['dev', 'prod'], true)) {
 }
 
 $debugValue = $_ENV['APP_DEBUG'] ?? $_SERVER['APP_DEBUG'] ?? ($appEnv === 'dev');
-$debug = filter_var($debugValue, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-if ($debug === null) {
+$debugOption = filter_var($debugValue, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+if ($debugOption === null) {
     throw new \RuntimeException('APP_DEBUG должен быть boolean-значением');
 }
+$debug = $appEnv === 'dev' && $debugOption;
 
 foreach ($trustedProxies as $proxy) {
     if ($proxy === '*') {

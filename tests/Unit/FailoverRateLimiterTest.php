@@ -75,6 +75,41 @@ final class FailoverRateLimiterTest extends TestCase
         self::assertSame(2, $limiter->hit('admin_login', '192.0.2.1', 300)->attempts);
     }
 
+    public function testReadOnlyFailoverCheckDoesNotCreateStorageForMissingState(): void
+    {
+        $limiter = new FileRateLimiter($this->directory, $this->clock);
+
+        self::assertFalse($limiter->isFailoverActive('admin_login', '192.0.2.1'));
+        self::assertDirectoryDoesNotExist($this->directory);
+    }
+
+    public function testGarbageCollectionProcessesAtMostTheConfiguredScanBudget(): void
+    {
+        $limiter = new FileRateLimiter($this->directory, $this->clock);
+        $cutoff = $this->clock->timestamp() - 86400;
+        $state = json_encode([
+            'attempts'          => 1,
+            'window_started_at' => $cutoff - 1,
+            'fallback_until'    => $cutoff - 1,
+        ], JSON_THROW_ON_ERROR);
+
+        for ($index = 0; $index < 250; $index++) {
+            $identifier = '192.0.2.' . $index;
+            $hash = hash('sha256', "admin_login\0{$identifier}");
+            $directory = $this->directory . '/' . substr($hash, 0, 2);
+            if (!is_dir($directory)) {
+                mkdir($directory, 0o700, true);
+            }
+            $path = $directory . '/' . $hash . '.json';
+            file_put_contents($path, $state);
+            touch($path, $cutoff - 1);
+        }
+
+        $method = new \ReflectionMethod(FileRateLimiter::class, 'collectExpiredStates');
+
+        self::assertSame(200, $method->invoke($limiter));
+    }
+
     public function testGarbageCollectorRemovesExpiredShardedState(): void
     {
         $limiter = new FileRateLimiter($this->directory, $this->clock);
@@ -92,6 +127,21 @@ final class FailoverRateLimiterTest extends TestCase
 
         self::assertSame(1, $method->invoke($limiter));
         self::assertFileDoesNotExist($path);
+    }
+
+    public function testRedisFallbackUsesConfiguredHoldDurationInsteadOfBucketWindow(): void
+    {
+        $redis = new TestRedisRateLimiter();
+        $redis->available = false;
+        $limiter = $this->makeFailover($redis);
+
+        self::assertSame(1, $limiter->hit('global', '192.0.2.1', 60)->attempts);
+
+        $redis->available = true;
+        $this->clock->advance(61);
+
+        self::assertSame(1, $limiter->hit('global', '192.0.2.1', 60)->attempts);
+        self::assertSame(1, $redis->hitCalls);
     }
 
     public function testClearResetsPrimaryAndFallbackCountersWhileFallbackIsActive(): void

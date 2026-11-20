@@ -7,4 +7,5 @@ namespace VEngine\System\Error;
 interface ErrorHandlerInterface
 {
     public function register(): void;
+    public function markResponseSent(): void;
 }
