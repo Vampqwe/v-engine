@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Controllers;
+namespace Sites\Corporate\App\Controllers;
 
+use App\Controllers\AbstractController;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Router\RouterInterface;
 use VEngine\System\TimeDate\TimeDateInterface;

@@ -43,7 +43,7 @@
 
 3. **Запустите встроенный сервер для разработки:**
    ```bash
-   php -S localhost:8000 -t public
+   php -S localhost:8000 -t sites/Corporate/public
    ```
    Приложение будет доступно по адресу `http://localhost:8000`.
 
@@ -60,7 +60,7 @@
 
 Для защищённого демонстрационного API-маршрута `/api/profile` задайте `API_TOKEN` длиной не менее 32 символов и передавайте его как `Authorization: Bearer <token>`. Секрет сравнивается без передачи в контроллер или ответ. Это общий API-ключ, а не система пользовательских учётных записей; для персональной авторизации требуется отдельный механизм.
 
-Если `CACHE_DRIVER=redis`, параметр `CACHE_REDIS_FALLBACK=true` (по умолчанию) включает переключение к файловому кэшу при ошибке Redis. Записи и удаления, сделанные во время сбоя, журналируются и повторяются в Redis после восстановления; время жизни записей сохраняется. Файловый failover-кэш находится в `storage/cache/redis-fallback`. Он предназначен для одного приложения на общем локальном диске: это best-effort failover кэша, а не репликация или транзакционное хранилище. Переключение сессий намеренно не выполняется: `SESSION_DRIVER` остаётся отдельной настройкой, и при сбое Redis-сессий запрос завершается ошибкой.
+Если `CACHE_DRIVER=redis`, параметр `CACHE_REDIS_FALLBACK=true` (по умолчанию) включает переключение к файловому кэшу при ошибке Redis. Записи и удаления, сделанные во время сбоя, журналируются и повторяются в Redis после восстановления; время жизни записей сохраняется. Файловый failover-кэш находится в `storage/cache/sites/<APP_SITE>/redis-fallback`. Он предназначен для одного приложения на общем локальном диске: это best-effort failover кэша, а не репликация или транзакционное хранилище. Переключение сессий намеренно не выполняется: `SESSION_DRIVER` остаётся отдельной настройкой, и при сбое Redis-сессий запрос завершается ошибкой.
 
 CI запускает интеграционные проверки MySQL и Redis. Локально `composer test` пропускает их, если не задано `CI_INTEGRATION=1`.
 
@@ -70,25 +70,29 @@ CI запускает интеграционные проверки MySQL и Red
 
 ```text
 v-engine/
-├── app/                        # Код пользовательского приложения (namespace App\)
-│   ├── Controllers/            # Контроллеры (наследуются от AbstractController)
-│   └── Middleware/             # Пользовательские посредники (наследуются от AbstractMiddleware)
+├── bootstrap.php              # Bootstrap общего ядра, вне document root
+├── app/                        # Общие базовые классы приложения
 ├── config/                     # Конфигурационные файлы
-│   ├── routes/                 # Декларативные файлы маршрутов (web.php, api.php)
-│   ├── database.php            # Настройки кодировки БД
+│   ├── database.php            # Параметры подключения к БД
 │   ├── dependency-rules.php    # Правила связывания интерфейсов для PHP-DI
-│   └── session.php             # Параметры cookie и времени жизни сессии
-├── log/                        # Журналы событий (раздельные .log файлы по модулям)
-├── public/                     # Публичная директория веб-сервера
-│   └── index.php               # Единая точка входа
+│   └── session.php             # Параметры сессии
+├── log/                        # Журналы, вне публичной директории
+├── modules/                    # Переиспользуемые модули, например Admin
+├── sites/                      # Сайты приложения: каждый сайт самодостаточен
+│   └── Corporate/
+│       ├── App/                # Контроллеры и middleware (namespace Sites\Corporate\App\)
+│       ├── routes/             # Маршруты только этого сайта
+│       ├── views/              # Шаблоны и layout сайта
+│       └── public/             # Единственный document root: index.php и assets/{css,js,images}
 ├── src/                        # Ядро фреймворка (namespace VEngine\)
 │   ├── Kernel/
 │   │   └── Application.php     # Инициализация путей, DI-контейнера и жизненный цикл
 │   └── System/                 # Системные модули ядра
 ├── storage/
-│   └── cache/                  # Директория файлового кэша
-└── views/                      # PHP-шаблоны и макеты (layouts)
+│   └── cache/                  # Кэш ядра и выбранного сайта
 ```
+
+`APP_SITE` выбирает один сайт на экземпляр приложения; по умолчанию используется `Corporate`. Для второго сайта создайте соседнюю папку в `sites/` с каталогами `App/`, `routes/`, `views/` и `public/`, затем задайте его имя в `.env`. Веб-сервер должен использовать `sites/<APP_SITE>/public` как document root. Общие базовые классы (`App\`), ядро (`VEngine\`) и модули (`Modules\`) остаются общими. Кэш приложения также разделён по сайтам.
 
 ---
 
@@ -117,15 +121,15 @@ v-engine/
 
 ## Примеры использования
 
-### 1. Описание маршрутов (`config/routes/web.php`)
-Все `.php` файлы из директории `config/routes/` подключаются автоматически:
+### 1. Описание маршрутов (`sites/Corporate/routes/web.php`)
+Все `.php` файлы из директории выбранного сайта `sites/<APP_SITE>/routes/` подключаются автоматически:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-use App\Controllers\HomeController;
+use Sites\Corporate\App\Controllers\HomeController;
 use App\Middleware\CsrfMiddleware;
 use VEngine\System\Router\RouterInterface;
 
@@ -139,7 +143,7 @@ return static function (RouterInterface $router): void {
 };
 ```
 
-### 2. Контроллер с валидацией и рендерингом (`app/Controllers/HomeController.php`)
+### 2. Контроллер с валидацией и рендерингом (`sites/Corporate/App/Controllers/HomeController.php`)
 Зависимости автоматически подставляются в конструктор и методы контроллера через `PHP-DI`:
 
 ```php
@@ -147,8 +151,9 @@ return static function (RouterInterface $router): void {
 
 declare(strict_types=1);
 
-namespace App\Controllers;
+namespace Sites\Corporate\App\Controllers;
 
+use App\Controllers\AbstractController;
 use VEngine\System\DataBase\DataBaseInterface;
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
@@ -192,21 +197,21 @@ final class HomeController extends AbstractController
 }
 ```
 
-### 3. Создание собственного Middleware (`app/Middleware/AuthMiddleware.php`)
+### 3. Создание Middleware сайта (`sites/Corporate/app/Middleware/SiteAuthMiddleware.php`)
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Middleware;
+namespace Sites\Corporate\App\Middleware;
 
 use VEngine\System\Http\RequestInterface;
 use VEngine\System\Http\ResponseInterface;
 use VEngine\System\Middleware\AbstractMiddleware;
 use VEngine\System\Session\SessionInterface;
 
-final class AuthMiddleware extends AbstractMiddleware
+final class SiteAuthMiddleware extends AbstractMiddleware
 {
     public function __construct(
         private readonly SessionInterface $session

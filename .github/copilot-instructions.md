@@ -3,13 +3,13 @@
 ## Project overview
 
 - This is a PHP 8.2+ Composer application built around a small modular framework.
-- PSR-4 mappings are `VEngine\` → `src/`, `App\` → `app/`, `Modules\` → `modules/`, and `Tests\` → `tests/`.
+- PSR-4 mappings are `VEngine\` → `src/`, shared `App\` → `app/`, `Sites\` → `sites/`, `Modules\` → `modules/`, and `Tests\` → `tests/`.
 - Read [README.md](../README.md) for the architecture and usage examples. Keep framework, application, and module code in their existing boundaries.
 
 ## PHP and architecture conventions
 
 - Put framework primitives and reusable system services under `src/System/`.
-- Put application controllers and middleware under `app/`.
+- Put reusable application base classes and middleware under `app/`. Put site-specific controllers and middleware under `sites/<Site>/App/` using the `Sites\<Site>\App\` namespace.
 - Put isolated feature code, controllers, services, middleware, views, and route registrars under `modules/<Module>/`.
 - Start PHP files with `declare(strict_types=1);` and follow the existing namespace and class style.
 - Match the surrounding style and use the PSR-12-oriented rules enforced by PHP-CS-Fixer rather than introducing another formatting convention.
@@ -20,11 +20,12 @@
 
 ## Routing, HTTP, and views
 
-- Register application routes in `config/routes/*.php`; register module routes in `modules/<Module>/routes.php`.
+- Select one site per application instance with `APP_SITE`. Store its routes, templates, and public assets under `sites/<Site>/routes/`, `sites/<Site>/views/`, and `sites/<Site>/public/assets/`; use `sites/<Site>/public/` as the web-server document root.
+- Register selected-site routes in `sites/<Site>/routes/*.php`; register reusable module routes in `modules/<Module>/routes.php`.
 - Route files return an `is_callable` registrar that accepts `VEngine\System\Router\RouterInterface`.
 - Route handlers and controllers must return `VEngine\System\Http\ResponseInterface`.
 - Reuse `AbstractController` helpers and `AbstractMiddleware` helpers before duplicating HTTP response behavior.
-- Route parameters and middleware should follow the patterns in [config/routes/web.php](../config/routes/web.php) and [modules/Admin/routes.php](../modules/Admin/routes.php).
+- Route parameters and middleware should follow the patterns in [sites/Corporate/routes/web.php](../sites/Corporate/routes/web.php) and [modules/Admin/routes.php](../modules/Admin/routes.php).
 - Render application views through `ViewInterface`; escape untrusted values with the view's `escape()` helper.
 - Use `RequestInterface` and `ResponseInterface` abstractions rather than reading or constructing raw superglobals and responses ad hoc.
 

@@ -11,9 +11,14 @@ if (PHP_SAPI !== 'cli') {
 $cacheDir = dirname(__DIR__) . '/storage/cache';
 
 $targets = [
+    $cacheDir . '/sites',
     $cacheDir . '/routes.compiled.php',
     $cacheDir . '/di',
 ];
+
+foreach (glob($cacheDir . '/routes-*.compiled.php') ?: [] as $routeCache) {
+    $targets[] = $routeCache;
+}
 
 foreach ($targets as $target) {
     if (is_file($target)) {

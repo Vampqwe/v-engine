@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Middleware;
+namespace Sites\Corporate\App\Middleware;
 
 use VEngine\System\Config\ConfigInterface;
 use VEngine\System\Http\RequestInterface;

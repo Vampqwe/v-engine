@@ -20,16 +20,37 @@ final class Application
     public function __construct(string $rootPath)
     {
         $root = rtrim($rootPath, DIRECTORY_SEPARATOR);
+        $siteName = $_ENV['APP_SITE'] ?? $_SERVER['APP_SITE'] ?? 'Corporate';
+        if (!is_string($siteName) || preg_match('/\A[A-Za-z][A-Za-z0-9_-]*\z/', $siteName) !== 1) {
+            throw new \InvalidArgumentException('APP_SITE должен быть корректным именем сайта');
+        }
+
+        $siteRoot = $root . '/sites/' . $siteName;
+        if (!is_dir($siteRoot)) {
+            throw new \InvalidArgumentException("Сайт '{$siteName}' не найден в {$siteRoot}");
+        }
+
+        foreach (['App', 'routes', 'views', 'public'] as $directory) {
+            if (!is_dir($siteRoot . '/' . $directory)) {
+                throw new \InvalidArgumentException(
+                    "В сайте '{$siteName}' отсутствует обязательная директория: {$directory}",
+                );
+            }
+        }
+
         $this->paths = [
-            'path.root'    => $root,
-            'path.app'     => $root . '/app',
-            'path.modules' => $root . '/modules',
-            'path.config'  => $root . '/config',
-            'path.routes'  => $root . '/config/routes',
-            'path.log'     => $root . '/log',
-            'path.cache'   => $root . '/storage/cache',
-            'path.public'  => $root . '/public',
-            'path.views'   => $root . '/views',
+            'path.root'     => $root,
+            'path.app'      => $root . '/app',
+            'path.modules'  => $root . '/modules',
+            'path.site'     => $siteName,
+            'path.siteRoot' => $siteRoot,
+            'path.siteApp'  => $siteRoot . '/App',
+            'path.config'   => $root . '/config',
+            'path.routes'   => $siteRoot . '/routes',
+            'path.log'      => $root . '/log',
+            'path.cache'    => $root . '/storage/cache/sites/' . $siteName,
+            'path.public'   => $siteRoot . '/public',
+            'path.views'    => $siteRoot . '/views',
         ];
 
         $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'dev';

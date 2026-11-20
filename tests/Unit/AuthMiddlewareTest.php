@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Middleware\AuthMiddleware;
 use PHPUnit\Framework\TestCase;
+use Sites\Corporate\App\Middleware\AuthMiddleware;
 use VEngine\System\Config\Config;
 use VEngine\System\Http\Request;
 use VEngine\System\Http\RequestInterface;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Controllers\HomeController;
+use Sites\Corporate\App\Controllers\HomeController;
 use App\Middleware\CsrfMiddleware;
 use VEngine\System\Router\RouterInterface;
 

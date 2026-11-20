@@ -7,7 +7,7 @@ use VEngine\Kernel\Application;
 use VEngine\System\Error\ErrorRenderer;
 
 ob_start();
-define('BASE_PATH', dirname(__DIR__));
+define('BASE_PATH', __DIR__);
 
 require_once BASE_PATH . '/src/System/Error/ErrorRendererInterface.php';
 require_once BASE_PATH . '/src/System/Error/ErrorRenderer.php';

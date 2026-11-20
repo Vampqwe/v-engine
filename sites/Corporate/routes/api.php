@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Controllers\ApiController;
-use App\Middleware\AuthMiddleware;
+use Sites\Corporate\App\Controllers\ApiController;
+use Sites\Corporate\App\Middleware\AuthMiddleware;
 use App\Middleware\RateLimitMiddleware;
 use VEngine\System\Router\RouterInterface;
 

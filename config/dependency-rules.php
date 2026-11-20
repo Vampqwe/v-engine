@@ -125,7 +125,7 @@ return [
             }
         }
 
-        // 1. Загружаем основные маршруты из config/routes/*.php
+        // 1. Загружаем маршруты выбранного сайта
         $routesDir = $c->get('path.routes');
         if (is_dir($routesDir)) {
             $files = glob($routesDir . '/*.php') ?: [];
@@ -174,6 +174,7 @@ return [
     ViewInterface::class => static function (ContainerInterface $c): ViewInterface {
         return new View(
             $c->get('path.views'),
+            $c->get('path.modules'),
             $c->get(SecurityInterface::class),
             $c->get(RouterInterface::class),
             $c->get(SessionInterface::class),

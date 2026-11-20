@@ -21,6 +21,7 @@ final class View implements ViewInterface
 
     public function __construct(
         private readonly string $viewsDir,
+        private readonly string $modulesDir,
         private readonly SecurityInterface $security,
         private readonly RouterInterface $router,
         private readonly SessionInterface $session,
@@ -125,7 +126,7 @@ final class View implements ViewInterface
             if (!str_ends_with($cleanSub, '.php')) {
                 $cleanSub .= '.php';
             }
-            $baseDir = dirname($this->viewsDir) . "/modules/{$cleanModule}/views";
+            $baseDir = $this->modulesDir . "/{$cleanModule}/views";
             $fullPath = "{$baseDir}/{$cleanSub}";
         } else {
             $clean = str_replace(['..', '\\'], ['', '/'], trim($template, '/'));
