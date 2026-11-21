@@ -101,6 +101,24 @@ php bin/queue-worker.php --queue=default --timeout=60 --tries=3
 
 `--timeout` ограничивает время жизни процесса, а не длительность отдельного задания: worker завершит текущее задание и затем остановится. SIGTERM и SIGINT обрабатываются через `pcntl`, если расширение доступно; настройте `QUEUE_VISIBILITY_TIMEOUT` больше максимальной ожидаемой длительности задания, чтобы не допускать повторного резервирования долгой работы. Доставка имеет семантику at-least-once: обработчики должны быть идемпотентны. `QUEUE_DRIVER=sync` выполняет `push()` немедленно; `pushDelayed()` с положительной задержкой в sync-режиме явно отклоняется.
 
+### Шина событий
+
+`Modules\Events\EventsInterface` предоставляет общую шину для синхронных и асинхронных listeners. Модуль регистрирует listeners в `modules/<Module>/module.php`; файл возвращает callable, принимающий `EventsInterface`:
+
+```php
+<?php
+
+use Modules\Events\EventsInterface;
+use Modules\Users\Events\UserRegistered;
+use Modules\Users\Listeners\SendWelcomeMail;
+
+return static function (EventsInterface $events): void {
+    $events->listen(UserRegistered::class, SendWelcomeMail::class, async: true);
+};
+```
+
+Без `async: true` listener запускается прямо при `dispatch()`. Для асинхронного listener шина кладёт `Modules\Events\Queue\ListenerJob` в очередь; его регистрация в allowlist worker выполняется автоматически. Событие наследуется от `Modules\Events\Event` и реализует `payload()`/`fromPayload()`. Payload async-событий должен быть JSON-сериализуемым; передавайте минимально необходимые данные и не помещайте туда секреты. При `QUEUE_DRIVER=sync` queued listener выполняется немедленно, что удобно для разработки и тестов.
+
 CI запускает интеграционные проверки MySQL и Redis. Локально `composer test` пропускает их, если не задано `CI_INTEGRATION=1`.
 
 ### Проверка производительности

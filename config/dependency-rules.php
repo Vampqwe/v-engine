@@ -48,6 +48,10 @@ use VEngine\System\RateLimit\FailoverRateLimiter;
 use VEngine\System\RateLimit\FileRateLimiter;
 use VEngine\System\RateLimit\RedisRateLimiter;
 use VEngine\System\RateLimit\Console\RateLimitGcCommand;
+use Modules\Events\Events;
+use Modules\Events\EventsInterface;
+use Modules\Events\ModuleEventRegistrar;
+use Modules\Events\Queue\ListenerJob;
 use Modules\Queue\Console\QueueWorkerCommand;
 use Modules\Queue\Driver\FileDriver as FileQueueDriver;
 use Modules\Queue\Driver\RedisDriver as RedisQueueDriver;
@@ -132,10 +136,17 @@ return [
             ? new SyncDriver($middleware, $c->get(TimeDateInterface::class))
             : new QueuedQueue($c->get(QueueDriverInterface::class), $c->get(TimeDateInterface::class));
     },
+    EventsInterface::class => static function (ContainerInterface $c): EventsInterface {
+        $events = new Events($c, $c->get(QueueInterface::class));
+        (new ModuleEventRegistrar())->register($c->get('path.modules'), $events);
+        return $events;
+    },
     JobRegistry::class => static function (ContainerInterface $c): JobRegistry {
         /** @var ConfigInterface $config */
         $config = $c->get(ConfigInterface::class);
-        return new JobRegistry($config->get('queue', 'jobs', []), $c);
+        $jobClasses = $config->get('queue', 'jobs', []);
+        $jobClasses[] = ListenerJob::class;
+        return new JobRegistry(array_values(array_unique($jobClasses)), $c);
     },
     Worker::class => static function (ContainerInterface $c): Worker {
         /** @var ConfigInterface $config */
