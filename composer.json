@@ -34,8 +34,9 @@
         "cs:check": "php-cs-fixer fix --dry-run --diff --no-interaction",
         "cs:fix": "php-cs-fixer fix --no-interaction",
         "test": "phpunit",
-        "admin:create": "php bin/create-admin.php",
-        "cache:clear": "php bin/cache-clear.php",
-        "rate-limit:gc": "php bin/rate-limit-gc.php"
+        "console": "php bin/console.php",
+        "admin:create": "php bin/console.php admin:create",
+        "cache:clear": "php bin/console.php cache:clear",
+        "rate-limit:gc": "php bin/console.php rate-limit:gc"
     }
 }

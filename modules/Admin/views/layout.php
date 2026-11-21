@@ -75,6 +75,8 @@
     <header class="topbar">
         <a href="<?= $this->route('admin.dashboard') ?>" class="brand">V-engine <span>Admin</span></a>
         <div class="nav-actions">
+            <a href="<?= $this->route('admin.dashboard') ?>">Обзор</a>
+            <a href="<?= $this->route('admin.cli') ?>">CLI</a>
             <a href="<?= $this->route('home') ?>">На сайт</a>
             <?php if (!empty($adminUser)): ?>
                 <span style="color: var(--text-muted);"><?= $this->escape($adminUser['email'] ?? '') ?></span>

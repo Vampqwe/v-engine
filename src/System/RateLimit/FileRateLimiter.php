@@ -173,9 +173,9 @@ final class FileRateLimiter implements RateLimiterInterface
         $this->collectExpiredStatesWithLock(false);
     }
 
-    public function collectExpiredStates(): int
+    public function collectExpiredStates(bool $waitForLock = true): int
     {
-        return $this->collectExpiredStatesWithLock(true);
+        return $this->collectExpiredStatesWithLock($waitForLock);
     }
 
     private function collectExpiredStatesWithLock(bool $waitForLock): int

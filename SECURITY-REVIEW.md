@@ -18,14 +18,15 @@ This report records confirmed security findings identified during the codebase r
 - The rate limiter defaults to the file driver, reports Redis usage accurately, avoids a second failover hit, shards state files, and removes expired entries probabilistically. `composer rate-limit:gc` provides a blocking CLI cleanup for scheduled runs; it is not configured automatically.
 - Production route-cache entries are fingerprinted against the route-file list and contents, so route changes invalidate stale compiled routes. Failures to write the cache are logged.
 - Production startup now reports explicitly when the DI compilation directory cannot be created or written.
+- The admin CLI tab exposes only the explicit `cache:clear` and non-blocking `rate-limit:gc` allowlist. It is protected by admin authentication and CSRF; arbitrary shell execution and user-supplied process arguments are not supported.
 - Error responses preserve their HTTP status and API JSON format. HTTP response headers are validated against control-character injection.
 - File and Redis cache reads now handle malformed payloads consistently; file-cache reads treat concurrent deletion as a cache miss, and non-positive TTLs do not create entries.
 - Production defaults, security headers, request-body limits, and error rendering were tightened.
 
 ## Validation
 
-- `composer test`: passed; 70 tests, 167 assertions, 1 skipped.
-- Focused regression tests for rate-limit cleanup, route-cache invalidation, and DI-cache setup: passed; 14 tests, 37 assertions.
+- `composer test`: passed; 77 tests, 183 assertions, 1 skipped.
+- Focused regression tests for rate-limit cleanup, route-cache invalidation, DI-cache setup, and Console/web allowlist behavior: passed in the full suite.
 - `composer cs:check`: passed on PHP 8.5.1 (PHP-CS-Fixer warned that the project minimum is PHP 8.2).
-- `php -l` on changed PHP files, `composer validate --no-check-publish`, and `git -c core.whitespace=cr-at-eol diff --check`: passed.
+- `php -l` on changed PHP files, `composer validate --no-check-publish`, and `git diff --check`: passed.
 - Load testing for rate-limit cleanup and MySQL/Redis integration tests were not run as part of this validation.

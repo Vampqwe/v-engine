@@ -44,6 +44,14 @@
 - Do not modify public entrypoints or generated route/DI cache files without a framework-level reason.
 - Before adding a module, follow the structure and route/Middleware/Service patterns under [modules/Admin/](../modules/Admin/).
 
+## Console commands
+
+- Register framework commands under `src/System/Console/` and keep domain-specific commands with their module or subsystem.
+- Implement commands with the shared `Command`, `InputInterface`, and `OutputInterface`; do not parse `argv` or write directly to `STDOUT` from command handlers.
+- Register commands through the shared Console application in `config/dependency-rules.php`; keep legacy `bin/` scripts as thin compatibility wrappers.
+- Never execute arbitrary shell commands or expose the full CLI registry to the web. Admin web execution must use an explicit allowlist, authenticated admin routes, CSRF protection, and buffered output.
+- Treat destructive or blocking commands as CLI-only unless a bounded, non-blocking web mode is explicitly designed and tested.
+
 ## Tests
 
 - PHPUnit 11 tests live under `tests/Unit/` and use the `Tests\Unit` namespace.

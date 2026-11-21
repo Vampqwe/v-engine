@@ -25,7 +25,7 @@
 
 Проверки выполнены по исходникам текущей ревизии и результатам запуска тестов.
 
-**2.1. Перечень тестов и отчёт синхронизированы.** В текущей ревизии — **70** методов `test*`, включая один пропускаемый интеграционный тест. Полный `composer test` завершился с **70 tests, 167 assertions, 1 skipped**. Перечень — §7.
+**2.1. Перечень тестов и отчёт синхронизированы.** В текущей ревизии — **77** методов `test*` в 29 Unit-файлах и одном Integration-файле. Полный `composer test` завершился с **77 tests, 183 assertions, 1 skipped**. Перечень — §7.
 
 **2.2. Предфильтр по mtime в GC логически корректен.** Файл со свежим `getMTime()` не может быть кандидатом на удаление: либо `window_started_at` обновлён при сбросе окна, либо `fallback_until` в будущем. Ложных пропусков предфильтр не даёт.
 
@@ -326,16 +326,18 @@ Production-кэш теперь включает fingerprint (SHA-256) всех �
 
 ## 7. Зафиксированный перечень тестов
 
-**Всего: 70 методов `test*` в 26 файлах Unit + 1 Integration.** Из них 1 skipped (`CI_INTEGRATION !== '1'`). Полный запуск: 70 tests, 167 assertions, 1 skipped.
+**Всего: 77 методов `test*` в 29 файлах Unit + 1 Integration.** Из них 1 skipped (`CI_INTEGRATION !== '1'`). Полный запуск: 77 tests, 183 assertions, 1 skipped.
 
 | Файл | Методов | Имена |
 |---|---|---|
+| `AdminConsoleServiceTest` | 2 | `testOnlyAllowlistedCommandsAreExposedAndRateLimitGcIsNonBlocking`, `testRejectsCommandsNotEnabledForTheWebInterface` |
 | `AdminUserServiceTest` | 1 | `testUnknownEmailStillVerifiesPasswordAgainstDummyHash` |
 | `AppConfigTest` | 3 | `testDebugIsDisabledInProductionEvenWhenExplicitlyRequested`, `testDebugCanBeEnabledInDevelopment`, `testTrustedProxyListDefaultsToEmpty` |
 | `ApplicationSiteTest` | 4 | `testSelectsTheDefaultSiteAndExposesSitePaths`, `testRejectsPathTraversalInSiteName`, `testRejectsUnknownSite`, `testReportsWhenProductionDiCacheDirectoryCannotBeCreated` |
 | `AuthMiddlewareTest` | 3 | `testRejectsAnArbitraryAuthorizationHeader`, `testAcceptsMatchingBearerTokenWithoutPassingItDownstream`, `testFailsClosedWhenApiTokenIsNotConfigured` |
 | `CacheConfigTest` | 3 | `testCacheDriverDefaultsToFile`, `testRejectsUnsupportedCacheDriver`, `testRedisFailoverIsEnabledByDefaultForRedisDriver` |
 | `CreateAdminCommandTest` | 1 | `testRejectsPasswordArgument` |
+| `ConsoleApplicationTest` | 4 | `testDispatchesArgumentsAndOptionsWithoutWritingToProcessOutput`, `testListsAndDescribesRegisteredCommands`, `testRejectsUnknownOptionsAndDuplicateCommands`, `testUnknownCommandAndHelpReturnNonZeroExitCodes` |
 | `EngineStatsServiceTest` | 2 | `testCollectsSiteStructureAndReportsUnavailableDatabase`, `testReportsRedisAsUsedByRateLimiter` |
 | `ErrorHandlerTest` | 2 | `testExceptionAfterResponseWasSentDoesNotWriteASecondBody`, `testValidationExceptionAfterResponseWasSentDoesNotWriteAnotherResponse` |
 | `ErrorRendererTest` | 1 | `testProductionPageUsesTheActualHttpStatus` |
@@ -356,6 +358,7 @@ Production-кэш теперь включает fingerprint (SHA-256) всех �
 | `SecurityTest` | 1 | `testCsrfTokenRotationInvalidatesThePreviousToken` |
 | `SessionConfigTest` | 4 | `testSecureCookieDefaultsToEnabledInProduction`, `testSecureCookieCanBeExplicitlyDisabled`, `testRejectsInvalidSecureCookieValue`, `testRejectsUnsupportedSessionDriver` |
 | `SessionFlashTest` | 2 | `testReadingFlashWithoutAnIncomingSessionDoesNotStartOne`, `testReadingFlashFromAClosedSessionClosesTheResumedSession` |
+| `StreamOutputTest` | 1 | `testTableAlignsMultibyteTextByTerminalWidth` |
 | `InfrastructureIntegrationTest` | 1 (skipped) | `testMySqlAndRedisBackendsAreReachable` |
 
 **Правило:** при добавлении или удалении теста обновлять эту таблицу и итог. Расхождение таблицы с фактом означает, что документ устарел — как это произошло с `SECURITY-REVIEW.md` (`DOC-01`).
@@ -413,7 +416,7 @@ composer cs:check
 composer test
 ```
 
-**Выполнено для текущих исправлений:** `composer test` — 70 tests, 167 assertions, 1 skipped; `composer cs:check` — пройден; `php -l` для затронутых PHP-файлов — пройден; `composer validate --no-check-publish` — valid; `git -c core.whitespace=cr-at-eol diff --check` — без ошибок (аудит хранится с CRLF). Команды запускались на PHP 8.5.1; PHP-CS-Fixer выдал предупреждение, что проект поддерживает PHP 8.2. Нагрузочный тест RL-10 и интеграционные проверки MySQL/Redis для этой валидации не запускались.
+**Выполнено для текущих исправлений:** `composer test` — 77 tests, 183 assertions, 1 skipped; `composer cs:check` — пройден; `php -l` для затронутых PHP-файлов — пройден; `composer validate --no-check-publish` — valid; `git diff --check` — без ошибок. Команды запускались на PHP 8.5.1; PHP-CS-Fixer выдал предупреждение, что проект поддерживает PHP 8.2. Нагрузочный тест RL-10 и интеграционные проверки MySQL/Redis для этой валидации не запускались.
 
 Интеграционные (при поднятых MySQL/Redis):
 ```bash

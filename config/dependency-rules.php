@@ -39,12 +39,18 @@ use VEngine\System\View\ViewInterface;
 use VEngine\System\Validator\Validator;
 use VEngine\System\Validator\ValidatorInterface;
 use VEngine\System\Cache\RedisCache;
+use VEngine\System\Cache\Console\CacheClearCommand;
+use VEngine\System\Console\ConsoleApplication;
+use VEngine\System\Console\ConsoleApplicationInterface;
 use VEngine\System\Redis\RedisClient;
 use VEngine\System\RateLimit\RateLimiterInterface;
 use VEngine\System\RateLimit\FailoverRateLimiter;
 use VEngine\System\RateLimit\FileRateLimiter;
 use VEngine\System\RateLimit\RedisRateLimiter;
+use VEngine\System\RateLimit\Console\RateLimitGcCommand;
+use Modules\Admin\Console\CreateAdminCommand;
 use Modules\Admin\Services\AdminUserService;
+use Modules\Admin\Services\AdminConsoleService;
 use Modules\Admin\Services\EngineStatsService;
 
 return [
@@ -89,7 +95,19 @@ return [
         ->constructorParameter('sitesRoot', DI\get('path.sites'))
         ->constructorParameter('modulesRoot', DI\get('path.modules'))
         ->constructorParameter('storageRoot', DI\get('path.storage')),
+    AdminConsoleService::class => DI\autowire(AdminConsoleService::class),
 
+    ConsoleApplicationInterface::class => static function (ContainerInterface $c): ConsoleApplicationInterface {
+        $console = new ConsoleApplication();
+        $console->register($c->get(CreateAdminCommand::class));
+        $console->register(new CacheClearCommand($c->get('path.root')));
+        $console->register(new RateLimitGcCommand(new FileRateLimiter(
+            $c->get('path.cache') . '/rate-limit',
+            $c->get(TimeDateInterface::class),
+            $c->get(LoggerInterface::class),
+        )));
+        return $console;
+    },
 
     ConfigInterface::class => static function (ContainerInterface $c): ConfigInterface {
         return new Config(
