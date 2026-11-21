@@ -15,7 +15,7 @@
         "phpunit/phpunit": "^11.5"
     },
     "suggest": {
-        "ext-redis": "Required when CACHE_DRIVER, SESSION_DRIVER, or RATE_LIMIT_DRIVER is set to redis."
+        "ext-redis": "Required when CACHE_DRIVER, SESSION_DRIVER, RATE_LIMIT_DRIVER, or QUEUE_DRIVER is set to redis."
     },
     "autoload": {
         "psr-4": {
@@ -37,6 +37,7 @@
         "console": "php bin/console.php",
         "admin:create": "php bin/console.php admin:create",
         "cache:clear": "php bin/console.php cache:clear",
-        "rate-limit:gc": "php bin/console.php rate-limit:gc"
+        "rate-limit:gc": "php bin/console.php rate-limit:gc",
+        "queue:work": "php bin/console.php queue:work"
     }
 }

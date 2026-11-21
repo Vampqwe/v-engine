@@ -48,6 +48,21 @@ use VEngine\System\RateLimit\FailoverRateLimiter;
 use VEngine\System\RateLimit\FileRateLimiter;
 use VEngine\System\RateLimit\RedisRateLimiter;
 use VEngine\System\RateLimit\Console\RateLimitGcCommand;
+use Modules\Queue\Console\QueueWorkerCommand;
+use Modules\Queue\Driver\FileDriver as FileQueueDriver;
+use Modules\Queue\Driver\RedisDriver as RedisQueueDriver;
+use Modules\Queue\Driver\SyncDriver;
+use Modules\Queue\FailedJobRepository;
+use Modules\Queue\FailedJobRepositoryInterface;
+use Modules\Queue\JobMetrics;
+use Modules\Queue\JobRegistry;
+use Modules\Queue\Middleware\JobMetricsMiddleware;
+use Modules\Queue\Middleware\LoggingMiddleware;
+use Modules\Queue\Middleware\QueueMiddlewareInterface;
+use Modules\Queue\QueueDriverInterface;
+use Modules\Queue\QueueInterface;
+use Modules\Queue\QueuedQueue;
+use Modules\Queue\Worker;
 use Modules\Admin\Console\CreateAdminCommand;
 use Modules\Admin\Services\AdminUserService;
 use Modules\Admin\Services\AdminConsoleService;
@@ -89,6 +104,55 @@ return [
         };
     },
     RedisClient::class => DI\autowire(RedisClient::class),
+    JobMetrics::class => DI\autowire(JobMetrics::class),
+    FailedJobRepositoryInterface::class => static fn(ContainerInterface $c): FailedJobRepositoryInterface => new FailedJobRepository(
+        $c->get('path.cache') . '/queue/failed',
+    ),
+    QueueDriverInterface::class => static function (ContainerInterface $c): QueueDriverInterface {
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+        return match ($config->get('queue', 'driver', 'file')) {
+            'file' => new FileQueueDriver($c->get('path.cache') . '/queue'),
+            'redis' => new RedisQueueDriver(
+                $c->get(RedisClient::class),
+                $c->get(TimeDateInterface::class),
+            ),
+            'sync' => throw new \LogicException('Sync queue не поддерживает queue worker'),
+            default => throw new \LogicException('Неподдерживаемый QUEUE_DRIVER'),
+        };
+    },
+    QueueInterface::class => static function (ContainerInterface $c): QueueInterface {
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+        $middleware = [
+            new LoggingMiddleware($c->get(LoggerInterface::class)),
+            new JobMetricsMiddleware($c->get(JobMetrics::class)),
+        ];
+        return $config->get('queue', 'driver', 'file') === 'sync'
+            ? new SyncDriver($middleware, $c->get(TimeDateInterface::class))
+            : new QueuedQueue($c->get(QueueDriverInterface::class), $c->get(TimeDateInterface::class));
+    },
+    JobRegistry::class => static function (ContainerInterface $c): JobRegistry {
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+        return new JobRegistry($config->get('queue', 'jobs', []), $c);
+    },
+    Worker::class => static function (ContainerInterface $c): Worker {
+        /** @var ConfigInterface $config */
+        $config = $c->get(ConfigInterface::class);
+        return new Worker(
+            $c->get(QueueDriverInterface::class),
+            $c->get(JobRegistry::class),
+            $c->get(FailedJobRepositoryInterface::class),
+            [
+                new LoggingMiddleware($c->get(LoggerInterface::class)),
+                new JobMetricsMiddleware($c->get(JobMetrics::class)),
+            ],
+            $c->get(TimeDateInterface::class),
+            $c->get(LoggerInterface::class),
+            $config->get('queue', 'visibility_timeout', 300),
+        );
+    },
     AdminUserService::class => DI\autowire(AdminUserService::class),
     EngineStatsService::class => DI\autowire(EngineStatsService::class)
         ->constructorParameter('siteRoot', DI\get('path.siteRoot'))
@@ -106,6 +170,7 @@ return [
             $c->get(TimeDateInterface::class),
             $c->get(LoggerInterface::class),
         )));
+        $console->register(new QueueWorkerCommand($c->get(Worker::class)));
         return $console;
     },
 
