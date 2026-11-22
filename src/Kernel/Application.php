@@ -33,7 +33,15 @@ final class Application
             throw new \InvalidArgumentException("Сайт '{$siteName}' не найден в {$siteRoot}");
         }
 
-        foreach (['App', 'routes', 'views', 'public'] as $directory) {
+        $engineMode = $_ENV['ENGINE_MODE'] ?? $_SERVER['ENGINE_MODE'] ?? 'default';
+        if (!in_array($engineMode, ['default', 'static'], true)) {
+            throw new \InvalidArgumentException('ENGINE_MODE должен быть default или static');
+        }
+
+        $requiredDirectories = $engineMode === 'static'
+            ? ['pages', 'public']
+            : ['App', 'routes', 'views', 'public'];
+        foreach ($requiredDirectories as $directory) {
             if (!is_dir($siteRoot . '/' . $directory)) {
                 throw new \InvalidArgumentException(
                     "В сайте '{$siteName}' отсутствует обязательная директория: {$directory}",
@@ -48,6 +56,8 @@ final class Application
             'path.site'     => $siteName,
             'path.siteRoot' => $siteRoot,
             'path.siteApp'  => $siteRoot . '/App',
+            'path.pages'    => $siteRoot . '/pages',
+            'path.engineMode' => $engineMode,
             'path.config'   => $root . '/config',
             'path.sites'    => $root . '/sites',
             'path.storage'  => $root . '/storage',

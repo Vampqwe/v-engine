@@ -28,6 +28,8 @@ use VEngine\System\Map\MapInterface;
 use VEngine\System\Router\Router;
 use VEngine\System\Router\RouteCacheFingerprint;
 use VEngine\System\Router\RouterInterface;
+use VEngine\System\Router\StaticPageController;
+use VEngine\System\Router\StaticRouteLoader;
 use VEngine\System\TimeDate\TimeDate;
 use VEngine\System\TimeDate\TimeDateInterface;
 use VEngine\System\Security\Security;
@@ -240,6 +242,16 @@ return [
 
     RouterInterface::class => static function (ContainerInterface $c): RouterInterface {
         $router = new Router($c, $c->get(InvokerInterface::class));
+
+        if ($c->has('path.engineMode') && $c->get('path.engineMode') === 'static') {
+            (new StaticRouteLoader())->load(
+                $router,
+                new StaticPageController($c->get('path.pages')),
+                $c->get('path.siteRoot') . '/routes.json',
+                $c->get('path.siteRoot') . '/route_aliases.json',
+            );
+            return $router;
+        }
 
         /** @var ConfigInterface $config */
         $config = $c->get(ConfigInterface::class);

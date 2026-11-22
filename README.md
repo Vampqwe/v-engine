@@ -40,6 +40,7 @@
    cp .env.example .env
    ```
    В `APP_ENV=prod` флаг `SESSION_SECURE` по умолчанию включен; явно устанавливайте `SESSION_SECURE=false` только для локального HTTP.
+   `ENGINE_MODE=default` оставляет обычную загрузку PHP-маршрутов. Для сайта из готовых HTML-страниц задайте `ENGINE_MODE=static`.
 
 3. **Запустите встроенный сервер для разработки:**
    ```bash
@@ -71,6 +72,30 @@ php bin/console.php rate-limit:gc
 В админ-панели `/admin/cli` доступен только фиксированный allowlist операций: `cache:clear` и неблокирующий `rate-limit:gc`. POST-запросы требуют авторизацию администратора и CSRF-токен. Это не shell: произвольные команды, аргументы процесса и shell-интерпретаторы из браузера не запускаются. Новые команды не становятся доступными в web-интерфейсе автоматически — для них требуется отдельное явное разрешение.
 
 Настройки подключения находятся в `config/database.php` и `config/redis.php`; выбор кэш-драйвера, параметры сессии и лимиты запросов — в `config/cache.php`, `config/session.php` и `config/rate-limit.php`. Секреты подключения задавайте только в `.env`.
+
+### Статический режим сайта
+
+При `ENGINE_MODE=static` приложение не загружает PHP route registrars сайта и модулей. Оно использует `sites/<APP_SITE>/routes.json`, `sites/<APP_SITE>/route_aliases.json` и HTML-файлы в `sites/<APP_SITE>/pages/`. `routes.json` — JSON-объект вида `URL: относительный путь к HTML-файлу`; `route_aliases.json` — объект `alias URL: существующий URL из routes.json`. Алиасы разрешаются внутренне без HTTP-редиректа. Поддерживаются только GET и HEAD; неизвестный маршрут или отсутствующая страница дают 404. Страницы остаются вне web root, а файлы доступны только через явно заданные маршруты.
+
+`sites/Corporate/routes.json`:
+
+```json
+{
+  "/": "index.html",
+  "/about": "about.html"
+}
+```
+
+`sites/Corporate/route_aliases.json`:
+
+```json
+{
+  "/home": "/",
+  "/about-us": "/about"
+}
+```
+
+Страница `/about-us` отдаст `pages/about.html`, сохраняя исходный URL. Пути страниц должны быть относительными `.html` путями внутри `pages/`; traversal и выход через symlink за пределы этой папки запрещены. CSS, JavaScript и изображения размещайте в `sites/<APP_SITE>/public/assets/` и используйте абсолютные URL, например `/assets/css/site.css`. По умолчанию активен обычный режим; существующие PHP-маршруты и production-кэш маршрутов при этом не меняются.
 
 Если приложение находится за reverse proxy, задайте `TRUSTED_PROXIES` точными IP-адресами или CIDR-сетями контролируемых прокси. Без этого заголовки forwarded IP игнорируются; не указывайте широкие или чужие подсети.
 
@@ -151,6 +176,9 @@ v-engine/
 │   └── Corporate/
 │       ├── App/                # Контроллеры и middleware (namespace Sites\Corporate\App\)
 │       ├── routes/             # Маршруты только этого сайта
+│       ├── pages/              # Готовые HTML-страницы для ENGINE_MODE=static
+│       ├── routes.json         # URL → HTML page для static режима
+│       ├── route_aliases.json  # URL alias → URL маршрута для static режима
 │       ├── views/              # Шаблоны и layout сайта
 │       └── public/             # Единственный document root: index.php и assets/{css,js,images}
 ├── src/                        # Ядро фреймворка (namespace VEngine\)
