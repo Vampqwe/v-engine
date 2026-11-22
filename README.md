@@ -40,7 +40,7 @@
    cp .env.example .env
    ```
    В `APP_ENV=prod` флаг `SESSION_SECURE` по умолчанию включен; явно устанавливайте `SESSION_SECURE=false` только для локального HTTP.
-   `ENGINE_MODE=default` оставляет обычную загрузку PHP-маршрутов. Для сайта из готовых HTML-страниц задайте `ENGINE_MODE=static`.
+   `ENGINE_MODE=default` оставляет обычную загрузку PHP-маршрутов. Для сайта из готовых HTML-страниц задайте `ENGINE_MODE=static` и укажите публичный origin сайта в `APP_URL`, например `https://example.com`.
 
 3. **Запустите встроенный сервер для разработки:**
    ```bash
@@ -96,6 +96,8 @@ php bin/console.php rate-limit:gc
 ```
 
 Страница `/about-us` отдаст `pages/about.html`, сохраняя исходный URL. Пути страниц должны быть относительными `.html` путями внутри `pages/`; traversal и выход через symlink за пределы этой папки запрещены. CSS, JavaScript и изображения размещайте в `sites/<APP_SITE>/public/assets/` и используйте абсолютные URL, например `/assets/css/site.css`. По умолчанию активен обычный режим; существующие PHP-маршруты и production-кэш маршрутов при этом не меняются.
+
+В static-режиме модуль `modules/Seo` автоматически создаёт `sitemap.xml` и `robots.txt` в корне `sites/<APP_SITE>/public/`, обновляя их атомарно только при изменении содержимого. Sitemap строится по каноническим маршрутам из `routes.json` (без aliases); `robots.txt` разрешает индексацию и указывает абсолютный URL sitemap. `APP_URL` обязателен только для static-режима и должен быть абсолютным `http://` или `https://` origin без пути, query или fragment. Для генерации PHP-процессу нужно право записи в `public/`; выделяйте доступ только этому каталогу и не делайте web root доступным для записи другим пользователям. В приложении также регистрируются GET/HEAD-маршруты для обоих файлов, чтобы они отдавались сразу после генерации.
 
 Если приложение находится за reverse proxy, задайте `TRUSTED_PROXIES` точными IP-адресами или CIDR-сетями контролируемых прокси. Без этого заголовки forwarded IP игнорируются; не указывайте широкие или чужие подсети.
 
@@ -172,6 +174,7 @@ v-engine/
 │   └── session.php             # Параметры сессии
 ├── log/                        # Журналы, вне публичной директории
 ├── modules/                    # Переиспользуемые модули, например Admin и Queue
+│   └── Seo/                    # SEO-файлы для static режима
 ├── sites/                      # Сайты приложения: каждый сайт самодостаточен
 │   └── Corporate/
 │       ├── App/                # Контроллеры и middleware (namespace Sites\Corporate\App\)
@@ -180,7 +183,7 @@ v-engine/
 │       ├── routes.json         # URL → HTML page для static режима
 │       ├── route_aliases.json  # URL alias → URL маршрута для static режима
 │       ├── views/              # Шаблоны и layout сайта
-│       └── public/             # Единственный document root: index.php и assets/{css,js,images}
+│       └── public/             # Document root: index.php, assets и генерируемые sitemap/robots
 ├── src/                        # Ядро фреймворка (namespace VEngine\)
 │   ├── Kernel/
 │   │   └── Application.php     # Инициализация путей, DI-контейнера и жизненный цикл
@@ -189,7 +192,7 @@ v-engine/
 │   └── cache/                  # Кэш ядра и выбранного сайта
 ```
 
-`APP_SITE` выбирает один сайт на экземпляр приложения; по умолчанию используется `Corporate`. Для второго сайта создайте соседнюю папку в `sites/` с каталогами `App/`, `routes/`, `views/` и `public/`, затем задайте его имя в `.env`. Веб-сервер должен использовать `sites/<APP_SITE>/public` как document root. Общие базовые классы (`App\`), ядро (`VEngine\`) и модули (`Modules\`) остаются общими. Кэш приложения также разделён по сайтам.
+`APP_SITE` выбирает один сайт на экземпляр приложения; по умолчанию используется `Corporate`. Для обычного режима создайте сайт с каталогами `App/`, `routes/`, `views/` и `public/`; для `ENGINE_MODE=static` нужны `pages/` и `public/`, а также `routes.json` и `route_aliases.json`. Веб-сервер должен использовать `sites/<APP_SITE>/public` как document root. Общие базовые классы (`App\`), ядро (`VEngine\`) и модули (`Modules\`) остаются общими. Кэш приложения также разделён по сайтам.
 
 ---
 

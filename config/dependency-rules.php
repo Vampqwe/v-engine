@@ -29,7 +29,9 @@ use VEngine\System\Router\Router;
 use VEngine\System\Router\RouteCacheFingerprint;
 use VEngine\System\Router\RouterInterface;
 use VEngine\System\Router\StaticPageController;
+use VEngine\System\Router\StaticModuleRegistrar;
 use VEngine\System\Router\StaticRouteLoader;
+use VEngine\System\Router\StaticSiteContext;
 use VEngine\System\TimeDate\TimeDate;
 use VEngine\System\TimeDate\TimeDateInterface;
 use VEngine\System\Security\Security;
@@ -244,11 +246,28 @@ return [
         $router = new Router($c, $c->get(InvokerInterface::class));
 
         if ($c->has('path.engineMode') && $c->get('path.engineMode') === 'static') {
-            (new StaticRouteLoader())->load(
+            /** @var ConfigInterface $config */
+            $config = $c->get(ConfigInterface::class);
+            $baseUrl = $config->env('APP_URL');
+            if (!is_string($baseUrl) || $baseUrl === '') {
+                throw new \LogicException('APP_URL обязателен при ENGINE_MODE=static');
+            }
+
+            $staticRoutes = (new StaticRouteLoader())->load(
                 $router,
                 new StaticPageController($c->get('path.pages')),
                 $c->get('path.siteRoot') . '/routes.json',
                 $c->get('path.siteRoot') . '/route_aliases.json',
+            );
+            (new StaticModuleRegistrar())->register(
+                $c->get('path.modules'),
+                new StaticSiteContext(
+                    $router,
+                    $c->get('path.public'),
+                    $baseUrl,
+                    $staticRoutes['routes'],
+                    $staticRoutes['aliases'],
+                ),
             );
             return $router;
         }

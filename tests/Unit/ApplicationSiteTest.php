@@ -26,13 +26,31 @@ final class ApplicationSiteTest extends TestCase
             'engineEnvValue' => $_ENV['ENGINE_MODE'] ?? null,
             'engineServerExists' => array_key_exists('ENGINE_MODE', $_SERVER),
             'engineServerValue' => $_SERVER['ENGINE_MODE'] ?? null,
+            'urlEnvExists' => array_key_exists('APP_URL', $_ENV),
+            'urlEnvValue' => $_ENV['APP_URL'] ?? null,
+            'urlServerExists' => array_key_exists('APP_URL', $_SERVER),
+            'urlServerValue' => $_SERVER['APP_URL'] ?? null,
         ];
-        unset($_ENV['APP_SITE'], $_SERVER['APP_SITE'], $_ENV['ENGINE_MODE'], $_SERVER['ENGINE_MODE']);
+        unset(
+            $_ENV['APP_SITE'],
+            $_SERVER['APP_SITE'],
+            $_ENV['ENGINE_MODE'],
+            $_SERVER['ENGINE_MODE'],
+            $_ENV['APP_URL'],
+            $_SERVER['APP_URL'],
+        );
     }
 
     protected function tearDown(): void
     {
-        unset($_ENV['APP_SITE'], $_SERVER['APP_SITE'], $_ENV['ENGINE_MODE'], $_SERVER['ENGINE_MODE']);
+        unset(
+            $_ENV['APP_SITE'],
+            $_SERVER['APP_SITE'],
+            $_ENV['ENGINE_MODE'],
+            $_SERVER['ENGINE_MODE'],
+            $_ENV['APP_URL'],
+            $_SERVER['APP_URL'],
+        );
         if ($this->previousSite['envExists']) {
             $_ENV['APP_SITE'] = $this->previousSite['envValue'];
         }
@@ -44,6 +62,12 @@ final class ApplicationSiteTest extends TestCase
         }
         if ($this->previousSite['engineServerExists']) {
             $_SERVER['ENGINE_MODE'] = $this->previousSite['engineServerValue'];
+        }
+        if ($this->previousSite['urlEnvExists']) {
+            $_ENV['APP_URL'] = $this->previousSite['urlEnvValue'];
+        }
+        if ($this->previousSite['urlServerExists']) {
+            $_SERVER['APP_URL'] = $this->previousSite['urlServerValue'];
         }
     }
 
@@ -129,9 +153,16 @@ final class ApplicationSiteTest extends TestCase
     {
         $previousAppEnv = $_ENV['APP_ENV'] ?? null;
         $hadAppEnv = array_key_exists('APP_ENV', $_ENV);
+        $publicPath = dirname(__DIR__, 2) . '/sites/Corporate/public';
+        $previousSeoFiles = [];
+        foreach (['sitemap.xml', 'robots.txt'] as $filename) {
+            $path = $publicPath . '/' . $filename;
+            $previousSeoFiles[$filename] = is_file($path) ? file_get_contents($path) : null;
+        }
         $_ENV['APP_SITE'] = 'Corporate';
         $_ENV['ENGINE_MODE'] = 'static';
         $_ENV['APP_ENV'] = 'dev';
+        $_ENV['APP_URL'] = 'https://example.test';
 
         try {
             $router = (new Application(dirname(__DIR__, 2)))->getContainer()->get(RouterInterface::class);
@@ -154,6 +185,16 @@ final class ApplicationSiteTest extends TestCase
 
             self::assertStringContainsString('Пример HTML-страницы', $body);
         } finally {
+            foreach ($previousSeoFiles as $filename => $contents) {
+                $path = $publicPath . '/' . $filename;
+                if ($contents === null) {
+                    if (is_file($path)) {
+                        unlink($path);
+                    }
+                } else {
+                    file_put_contents($path, $contents);
+                }
+            }
             if ($hadAppEnv) {
                 $_ENV['APP_ENV'] = $previousAppEnv;
             } else {

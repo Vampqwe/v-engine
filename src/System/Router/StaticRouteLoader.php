@@ -10,12 +10,15 @@ use VEngine\System\Http\ResponseInterface;
 
 final class StaticRouteLoader
 {
+    /**
+     * @return array{routes: array<string, string>, aliases: array<string, string>}
+     */
     public function load(
         RouterInterface $router,
         StaticPageController $controller,
         string $routesFile,
         string $aliasesFile,
-    ): void {
+    ): array {
         $routes = $this->readMap($routesFile, 'routes');
         $aliases = $this->readMap($aliasesFile, 'route aliases');
 
@@ -41,6 +44,11 @@ final class StaticRouteLoader
         foreach ($aliases as $alias => $target) {
             $this->registerPage($router, $controller, $alias, $routes[$target]);
         }
+
+        return [
+            'routes'  => $routes,
+            'aliases' => $aliases,
+        ];
     }
 
     /**
@@ -86,6 +94,8 @@ final class StaticRouteLoader
             || str_contains($path, '?')
             || str_contains($path, '#')
             || str_contains($path, '//')
+            || str_contains($path, '{')
+            || str_contains($path, '}')
             || ($path !== '/' && str_ends_with($path, '/'))
             || preg_match('/[\x00-\x20]/', $path) === 1
         ) {
